@@ -29,8 +29,8 @@ type site struct {
 func main() {
 	urlBase := flag.String("url", "https://tools.ietf.org/rfc/rfc%d.txt", "The URL you wish to scrape, containing \"%d\" where the id should be substituted")
 	idLow := flag.Int("from", 1, "The first ID that should be searched in the URL")
-	idHigh := flag.Int("to", 2, "The last ID that should be searched in the URL")
-	concurrency := flag.Int("concurrency", 1, "How many scrapers to run in parallel. (More scrapers are faster, but more prone to rate limiting or bandwith issues)")
+	idHigh := flag.Int("to", 1000, "The last ID that should be searched in the URL")
+	concurrency := flag.Int("concurrency", 1000, "How many scrapers to run in parallel. (More scrapers are faster, but more prone to rate limiting or bandwith issues)")
 	outfile := flag.String("output", "output.csv", "Filename to export the CSV results")
 	body := flag.String("body > pre", "body", "JQuery-style query for the body element")
 	flag.Parse()
