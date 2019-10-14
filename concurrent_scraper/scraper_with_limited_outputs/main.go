@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -29,9 +30,10 @@ type site struct {
 func main() {
 	urlBase := flag.String("url", "https://tools.ietf.org/rfc/rfc%d.txt", "The URL you wish to scrape, containing \"%d\" where the id should be substituted")
 	idLow := flag.Int("from", 1, "The first ID that should be searched in the URL")
-	idHigh := flag.Int("to", 1000, "The last ID that should be searched in the URL")
-	concurrency := flag.Int("concurrency", 1000, "How many scrapers to run in parallel. (More scrapers are faster, but more prone to rate limiting or bandwith issues)")
+	idHigh := flag.Int("to", 2, "The last ID that should be searched in the URL")
+	concurrency := flag.Int("concurrency", 2, "How many scrapers to run in parallel. (More scrapers are faster, but more prone to rate limiting or bandwith issues)")
 	outfile := flag.String("output", "output.csv", "Filename to export the CSV results")
+	popularwordLimit := flag.Int("popularwordLimit", 2, "The top %d popular words to parse")
 	body := flag.String("body > pre", "body", "JQuery-style query for the body element")
 	flag.Parse()
 
@@ -67,10 +69,8 @@ func main() {
 				if err != nil {
 					fmt.Printf("error fetching data from site %v", err)
 				}
-				wordCount, err := format(site)
-				if err != nil {
-					fmt.Printf("error fetching data from site %v", err)
-				}
+				wordCount := format(site, *popularwordLimit)
+
 				results <- wordCount
 			}
 			wg.Done()
@@ -105,9 +105,11 @@ func fetch(url string, id int, queries []string) ([]string, error) {
 	return s, nil
 }
 
-func format(queries []string) (map[string]int, error) {
-	words := strings.Split(strings.Join(queries, ""), " ")
+func format(s []string, count int) map[string]int {
+
+	words := strings.Split(strings.Join(s, ""), "")
 	m := make(map[string]int)
+
 	for _, word := range words {
 		_, ok := m[word]
 		if ok {
@@ -116,7 +118,35 @@ func format(queries []string) (map[string]int, error) {
 			m[word] = 1
 		}
 	}
-	return m, nil
+
+	counts := make(map[string]int)
+	for key, value := range m {
+		if value > 1 {
+			//copying the value from the main map to the new one
+			counts[key] = value
+		}
+	}
+
+	keys := make([]string, len(counts))
+	for key := range counts {
+		keys = append(keys, key)
+	}
+
+	sort.Slice(keys, func(i int, j int) bool {
+		return counts[keys[i]] > counts[keys[j]]
+	})
+
+	// Builds result map
+	result := make(map[string]int)
+	for _, key := range keys {
+		result[key] = counts[key]
+		count--
+		if count == 0 {
+			break
+		}
+
+	}
+	return result
 }
 
 func writeSites(results chan map[string]int, outfile string, headers []string) error {
