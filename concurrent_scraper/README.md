@@ -6,7 +6,6 @@ A basic package used for scraping information from a website where URLs contain 
 Flags are all optional, and are set with a single dash on the command line, e.g.
 
 ```
-iterscraper \
 -url            "https://tools.ietf.org/rfc/rfc%d.txt" \
 -from           1                   \
 -to             1000                  \
@@ -14,9 +13,6 @@ iterscraper \
 -output         output.csv             \
 ```
 
-For an explanation of the options, type `iterscraper -help`
-
-General usage of iterscraper:
 
 ```
  
@@ -57,8 +53,7 @@ Building the source requires the [Go programming language](https://golang.org/do
 # Dependency is GoQuery
 go get github.com/PuerkitoBio/goquery
 go run main.go
-# If your $PATH is configured correctly, you can call it directly
-iterscraper [flags]
+
 
 ```
 
