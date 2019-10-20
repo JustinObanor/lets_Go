@@ -24,20 +24,15 @@ func generateSlice(size int) []int {
 }
 
 func bubbleSort(slice []int) {
-	var (
-		n      = len(slice)
-		sorted = false
-	)
-	for !sorted {
-		swapped := false
-		for i := 0; i < n-1; i++ {
-			if slice[i] > slice[i+1] {
-				slice[i], slice[i+1] = slice[i+1], slice[i]
-				swapped = true
+	size := len(slice)
+	if size < 2 {
+		return
+	}
+	for i := 0; i < size; i++ {
+		for j := size - 1; j >= 1; j-- {
+			if slice[j] < slice[j-1] {
+				slice[j], slice[j-1] = slice[j-1], slice[j]
 			}
-		}
-		if !swapped {
-			sorted = true
 		}
 	}
 }

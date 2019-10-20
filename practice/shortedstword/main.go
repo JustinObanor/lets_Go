@@ -24,10 +24,11 @@ func main() {
 }
 
 func longest(s string) string {
-	res := sorter(s)
+	// res := sorter(s)
+	res := " "
 	words := strings.Split(s, " ")
 	for _, word := range words {
-		if len(word) < len(res) {
+		if len(word) > len(res) {
 			res = word
 		}
 	}
