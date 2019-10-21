@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package todo;
+
+//schema
+//type
+message Task{
+string text = 1;
+bool done = 2;
+}

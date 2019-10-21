@@ -1,3 +1,5 @@
+They help us seriealize(pulbish, broadcast) data - like XML, but way better
+
 protocol buffers is a format to store messages. sth like json or xml
 message type and values of that message type
 they have schema and value
