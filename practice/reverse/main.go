@@ -3,17 +3,14 @@ package main
 import "fmt"
 
 func main() {
-	value1 := "cat"
-	reversed1 := reverse(value1)
-	fmt.Println(value1)
-	fmt.Println(reversed1)
+	s := "cat"
+	fmt.Println(reverser(s))
 }
 
-func reverse(s string) string {
-	data := []rune(s)
-	res := make([]rune, len(s))
+func reverser(s string) string {
+	var ss []byte
 	for i := len(s) - 1; i >= 0; i-- {
-		res = append(res, data[i])
+		ss = append(ss, s[i])
 	}
-	return string(res)
+	return string(ss)
 }

@@ -54,6 +54,7 @@ func cipher(text string, direction int) string {
 // encode and decode provide the API for encoding and decoding text using
 // the Caesar Cipher algorithm.
 func encode(text string) string { return cipher(text, -1) }
+
 func decode(text string) string { return cipher(text, +1) }
 
 // A simple test
