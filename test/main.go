@@ -3,15 +3,31 @@ package main
 import "fmt"
 
 func main() {
-	s := "abc"
-	fmt.Println(cipher(s))
-}
+	var word string
+	fmt.Println("Input word to cypher")
+	fmt.Scan(&word)
 
-func cipher(text string) string {
-	runes := []rune(text)
-	for index, value := range runes {
-		value = value + rune(1)
-		runes[index] = value
+	var key rune
+	fmt.Print("key: ")
+	fmt.Scan(&key)
+
+	var action int
+	fmt.Println("Input action: [1]Enconde [2]Decode")
+	fmt.Scan(&action)
+
+	switch action {
+	case 1:
+		for _, v := range word {
+			v = v + key
+			fmt.Printf("%c", v)
+		}
+
+	case 2:
+		for _, v := range word {
+			v = v - key
+			fmt.Printf("%c", v)
+		}
+	default:
+		fmt.Println("Wrong option")
 	}
-	return string(runes)
 }
