@@ -31,13 +31,13 @@ func cipher(text string, direction int) string {
 		case -1: // encoding
 			if char >= 'a'+shift && char <= 'z' || char >= 'A'+shift && char <= 'Z' {
 				char = char - shift
-			} else if char >= 'a' && char < 'a'+shift || char >= 'A' && char < 'A'+shift {
+			} else if char >= 'a' && char <= 'a'+shift || char >= 'A' && char <= 'A'+shift {
 				char = char - shift + offset
 			}
 		case +1: // decoding
 			if char >= 'a' && char <= 'z'-shift || char >= 'A' && char <= 'Z'-shift {
 				char = char + shift
-			} else if char > 'z'-shift && char <= 'z' || char > 'Z'-shift && char <= 'Z' {
+			} else if char >= 'z'-shift && char <= 'z' || char >= 'Z'-shift && char <= 'Z' {
 				char = char + shift - offset
 			}
 		}
@@ -59,8 +59,8 @@ func decode(text string) string { return cipher(text, +1) }
 
 // A simple test
 func main() {
-	println("the text is `das fuchedes 666`")
-	encoded := encode("das fuchedes 666")
+	println("the text is `abc`")
+	encoded := encode("abc")
 	println("  encoded: " + encoded)
 	decoded := decode(encoded)
 	println("  decoded: " + decoded)

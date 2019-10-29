@@ -1,33 +1,23 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"sync"
+)
 
 func main() {
-	var word string
-	fmt.Println("Input word to cypher")
-	fmt.Scan(&word)
-
-	var key rune
-	fmt.Print("key: ")
-	fmt.Scan(&key)
-
-	var action int
-	fmt.Println("Input action: [1]Enconde [2]Decode")
-	fmt.Scan(&action)
-
-	switch action {
-	case 1:
-		for _, v := range word {
-			v = v + key
-			fmt.Printf("%c", v)
-		}
-
-	case 2:
-		for _, v := range word {
-			v = v - key
-			fmt.Printf("%c", v)
-		}
-	default:
-		fmt.Println("Wrong option")
+	var wg sync.WaitGroup
+	x := []int{1, 3, 5, 4, 3, 6, 8, 5, 3, 5}
+	c := make(chan int)
+	wg.Add(len(x))
+	for _, v := range x {
+		go func(v int) {
+			defer wg.Done()
+			c <- v
+		}(v)
 	}
+	for i := 0; i < len(x); i++ {
+		fmt.Println(<-c)
+	}
+	wg.Wait()
 }
