@@ -1,7 +1,12 @@
 package main
 
-func main() {
-	
-}
+import (
+	"fmt"
+	"sort"
+)
 
-func isPalindrome(s string)bool{}
+func main() {
+	x := []int{1,2,3,4,5,6}
+	sort.Sort(sort.Reverse(sort.IntSlice(x)))
+	fmt.Println(x)
+}

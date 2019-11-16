@@ -4,7 +4,6 @@ import (
 	"encoding/csv"
 	"flag"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"sort"
@@ -12,48 +11,45 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/PuerkitoBio/goquery"
 )
 
-var start time.Time
-
-func init() {
-	start = time.Now()
-}
-
-type site struct {
+type Task struct {
 	url string
 	id  int
 }
 
+type MyMap struct {
+	key   string
+	value int
+}
+
 func main() {
-	urlBase := flag.String("url", "https://tools.ietf.org/rfc/rfc%d.txt", "The URL you wish to scrape, containing \"%d\" where the id should be substituted")
-	idLow := flag.Int("from", 1, "The first ID that should be searched in the URL")
-	idHigh := flag.Int("to", 2, "The last ID that should be searched in the URL")
-	concurrency := flag.Int("concurrency", 2, "How many scrapers to run in parallel. (More scrapers are faster, but more prone to rate limiting or bandwith issues)")
-	outfile := flag.String("output", "output.csv", "Filename to export the CSV results")
-	popularwordLimit := flag.Int("popularwordLimit", 2, "The top %d popular words to parse")
-	body := flag.String("body > pre", "body", "JQuery-style query for the body element")
+	var wg sync.WaitGroup
+
+	urlBase := flag.String("urlbase", "https://tools.ietf.org/rfc/rfc%d.txt", "the url to search")
+	idLow := flag.Int("idlow", 1, "minumum url id to go to")
+	idHigh := flag.Int("idhigh", 2, "maximum url id to go to")
+	concurrency := flag.Int("concurrency", 1, "amount of parallel tasks to run")
+	body := flag.String("body > pre", "body", "jquery thingy")
+	outfile := flag.String("outfile", "file.csv", "csv file to parse to")
 	flag.Parse()
 
-	queries := []string{*body}
-	headers := []string{"BODY"}
-	headers = append([]string{"URL HEADERS"}, headers...)
+	query := []string{*body}
+	headers := []string{"URL", "HEADERS", "BODY"}
 
-	task := make(chan site)
+	tasks := make(chan Task)
 
-	results := make(chan map[string]int)
+	results := make(chan []MyMap)
 
 	go func() {
 		for i := *idLow; i < *idHigh; i++ {
 			url := fmt.Sprintf(*urlBase, i)
-			task <- site{url: url, id: i}
+			tasks <- Task{url: url, id: i}
 		}
-		close(task)
 	}()
-
-	var wg sync.WaitGroup
 
 	wg.Add(*concurrency)
 
@@ -64,117 +60,108 @@ func main() {
 
 	for i := 0; i < *concurrency; i++ {
 		go func() {
-			for v := range task {
-				site, err := fetch(v.url, v.id, queries)
+			for value := range tasks {
+				site, err := scraper(value.url, value.id, query)
 				if err != nil {
-					fmt.Printf("error fetching data from site %v", err)
+					fmt.Printf("error parsing data %v", err)
 				}
-				wordCount := format(site, *popularwordLimit)
-
-				results <- wordCount
+				for i := 0; i < 20; i++ {
+					fmt.Printf("%s\t : %d\n", site[i].key, site[i].value)
+				}
+				results <- site
 			}
 			wg.Done()
 		}()
 	}
 
-	err := writeSites(results, *outfile, headers)
+	err := writeSlice(results, *outfile, headers)
 	if err != nil {
-		log.Printf("could not dump CSV: %v", err)
+		fmt.Printf("couldnt write data to csv file %v", err)
 	}
+
 	wg.Wait()
-	log.Printf("Time to get %d number of RFC files - %v", *concurrency, time.Since(start))
 }
 
-func fetch(url string, id int, queries []string) ([]string, error) {
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, fmt.Errorf("couldnt get site %s : %v", url, err)
+func scraper(url string, id int, query []string) ([]MyMap, error) {
+	client := &http.Client{
+		Timeout: time.Minute,
 	}
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error making request %v", err)
+	}
+	req.Header.Set("User-Agent", "Not Firefox")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("error making request %v", err)
+	}
+
 	defer resp.Body.Close()
 
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("couldnt parse site %s : %v", url, err)
+		return nil, fmt.Errorf("error getting doc %v", err)
 	}
 
-	s := []string{url, strconv.Itoa(id)}
+	data := []string{url, strconv.Itoa(id)}
 
-	for _, v := range queries {
-		s = append(s, strings.TrimSpace(doc.Find(v).Text()))
+	for _, value := range query {
+		data = append(data, strings.TrimSpace(doc.Find(value).Text()))
 	}
-	return s, nil
-}
 
-func format(s []string, count int) map[string]int {
-
-	words := strings.Split(strings.Join(s, ""), "")
 	m := make(map[string]int)
 
-	for _, word := range words {
-		_, ok := m[word]
-		if ok {
-			m[word]++
+	f := func(c rune) bool {
+		return !unicode.IsLetter(c) && !unicode.IsNumber(c)
+	}
+
+	data = strings.FieldsFunc(strings.Join(data, " "), f)
+
+	for _, value := range data {
+		if _, ok := m[value]; ok {
+			m[value]++
 		} else {
-			m[word] = 1
+			m[value] = 1
 		}
 	}
+	mapSlice := make([]MyMap, 0, len(m))
 
-	counts := make(map[string]int)
 	for key, value := range m {
-		if value > 1 {
-			//copying the value from the main map to the new one
-			counts[key] = value
-		}
+		mapSlice = append(mapSlice, MyMap{key, value})
 	}
+	sort.Slice(mapSlice, func(i, j int) bool { return mapSlice[i].value > mapSlice[j].value })
 
-	keys := make([]string, len(counts))
-	for key := range counts {
-		keys = append(keys, key)
-	}
-
-	sort.Slice(keys, func(i int, j int) bool {
-		return counts[keys[i]] > counts[keys[j]]
-	})
-
-	// Builds result map
-	result := make(map[string]int)
-	for _, key := range keys {
-		result[key] = counts[key]
-		count--
-		if count == 0 {
-			break
-		}
-
-	}
-	return result
+	return mapSlice, err
 }
 
-func writeSites(results chan map[string]int, outfile string, headers []string) error {
-	file, err := os.Create(outfile)
+func writeSlice(results chan []MyMap, outfile string, headers []string) error {
+	f, err := os.OpenFile(outfile, os.O_RDONLY|os.O_CREATE, 0666)
 	if err != nil {
-		return fmt.Errorf("error creating csv file %s : %v", outfile, err)
+		return fmt.Errorf("couldnt open file %s", outfile)
 	}
-	defer file.Close()
+	defer f.Close()
 
-	w := csv.NewWriter(file)
+	w := csv.NewWriter(f)
 
-	defer w.Flush()
+	w.Flush()
 
-	if err := w.Write(headers); err != nil {
-		return fmt.Errorf("error writing records to csv %v", err)
+	if err = w.Write(headers); err != nil {
+		return fmt.Errorf("couldnt write headers to file %s", outfile)
 	}
+	data := make([]string, 0, len(results))
 	for v := range results {
-		for key, value := range v {
-			r := make([]string, len(strconv.Itoa(value)))
-			r = append(r, key)
-			r = append(r, strconv.Itoa(value))
-			if err := w.Write(r); err != nil {
-				return fmt.Errorf("error writing record to csv %v", err)
+		for i := 0; i < 20; i++ {
+			data = append(data, v[i].key)
+			data = append(data, strconv.Itoa(v[i].value))
+			if err = w.Write(data); err != nil {
+				return fmt.Errorf("couldnt write headers to file %s", outfile)
 			}
 		}
 	}
-	if err != w.Error() {
-		return fmt.Errorf("couldnt write to csv file %s : %v", outfile, err)
+	if err = w.Error(); err != nil {
+		return fmt.Errorf("couldnt write headers to file %s", outfile)
 	}
 	return nil
 }
