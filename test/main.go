@@ -1,12 +1,10 @@
 package main
 
-import (
-	"fmt"
-	"sort"
-)
+import "fmt"
 
 func main() {
-	x := []int{1,2,3,4,5,6}
-	sort.Sort(sort.Reverse(sort.IntSlice(x)))
-	fmt.Println(x)
+	c := make(chan int, 2)
+	c <- 1
+	c <- 2
+	fmt.Println(<-c)
 }

@@ -7,24 +7,17 @@ import (
 )
 
 func main() {
-	x := generate(10)
-	info(x)
-	xx := make([]int, len(x)*2)
-	for i := range x {
-		xx[i] = x[i]
-		//or copy(dst, src)
-	}
-	x = xx
-	info(x)
+	s := generate(10)
+	fmt.Println(s)
 }
 
 func generate(i int) []int {
-	x := make([]int, i)
+	s := make([]int, i)
 	rand.Seed(time.Now().UnixNano())
-	for i := range x {
-		x[i] = rand.Intn(10) - rand.Intn(10)
+	for i := 0; i < len(s); i++ {
+		s[i] = rand.Intn(10) - rand.Intn(10)
 	}
-	return x
+	return s
 }
 
 func info(x []int) {
