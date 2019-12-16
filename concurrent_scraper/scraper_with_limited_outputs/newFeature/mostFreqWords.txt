@@ -1,0 +1,23 @@
+func mostFrequentWords(m map[string]int, nbrWords int) []elem {
+	h := elemHeap(make([]elem, 0, nbrWords))
+	last := nbrWords - 1
+	for word, count := range m {
+		if len(h) < nbrWords {
+			pos := sort.Search(len(h), func(i int) bool { return h[i].count < count || (h[i].count == count && h[i].word >= word) })
+			if pos == len(h) {
+				h = append(h, elem{count: count, word: word})
+				continue
+			}
+			h = append(h, elem{})
+			copy(h[pos+1:], h[pos:len(h)])
+			h[pos] = elem{count: count, word: word}
+			continue
+		}
+		if count >= h[last].count {
+			pos := sort.Search(nbrWords, func(i int) bool { return h[i].count < count || (h[i].count == count && h[i].word >= word) })
+			copy(h[pos+1:], h[pos:last])
+			h[pos] = elem{count: count, word: word}
+		}
+	}
+	return h
+}

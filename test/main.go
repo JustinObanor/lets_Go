@@ -1,24 +1,31 @@
 package main
 
-import (
-	"fmt"
-	"sync"
-)
-
-var x = []int{1, 3, 6, 2, 9, 7, 5}
-var wg sync.WaitGroup
+import "fmt"
 
 func main() {
-	wg.Add(len(x))
-	for _, v := range x {
-		go func(i int) {
-			print(i)
-		}(v)
-	}
-	wg.Wait()
+	var length int
+
+	fmt.Println("Input length :")
+	fmt.Scan(&length)
+
+	var width int
+
+	fmt.Println("Input width :")
+	fmt.Scan(&width)
+
+	var choice int
+
+	fmt.Println("Input choice :")
+	fmt.Scan(&choice)
+
+	calc(choice, length, width)
 }
 
-func print(i int) {
-	fmt.Println(i)
-	wg.Done()
+func calc(choice, l, w int) {
+	switch choice {
+	case 1:
+		fmt.Println(l * w)
+	case 2:
+		fmt.Println(2 * (l + w))
+	}
 }
