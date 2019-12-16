@@ -1,0 +1,18 @@
+func scraper(url string, id int) (map[string]int, error) {
+	client := &http.Client{
+		Timeout: time.Minute,
+	}
+	resp, err := client.Get(url)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error making request %v", err)
+	}
+	b, err := ioutil.ReadAll(resp.Body) 
+	if err != nil {
+		return nil, fmt.Errorf("error reading RFC text %v", err)
+	}
+	m := countWordsIn(string(b))
+	return m, nil
+}

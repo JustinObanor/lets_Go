@@ -1,0 +1,29 @@
+type elem struct {
+    word  string
+    count int
+}
+
+func mostFrequentWords(m map[string]int, nbrWords int) []elem {
+	h := elemHeap(make([]elem, nbrWords))
+	for word, count := range m {
+		if count < h[0].count {
+			continue
+		}
+		h[0] = elem{word: word, count: count}
+		for i, j := 0, 0; i < nbrWords; i = j {
+			j := i * 2
+			if j < nbrWords && h[i].count > h[j].count {
+				h[j], h[i] = h[i], h[j]
+				continue
+			}
+			j++
+			if j < nbrWords && h[i].count > h[j].count {
+				h[j], h[i] = h[i], h[j]
+				continue
+			}
+			break
+		}
+	}
+	sort.Slice(h, func(i, j int) bool { return h[i].count > h[j].count })
+	return h
+}
