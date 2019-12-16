@@ -1,0 +1,40 @@
+package main
+
+import (
+    "container/heap"
+    "fmt"
+    "sort"
+)
+
+type elem struct {
+    word  string
+    count int
+}
+
+type elemHeap []elem
+
+func (h elemHeap) Len() int           { return len(h) }
+func (h elemHeap) Less(i, j int) bool { return h[i].count < h[j].count }
+func (h elemHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
+func (h elemHeap) Push(x interface{}) { /* not used */ }
+func (h elemHeap) Pop() interface{}   { /* not used */ return nil }
+
+func mostFrequentWords(m map[string]int, nbrWords int) []elem {
+    h := elemHeap(make([]elem, nbrWords))
+    for word, count := range m {
+        if count > h[0].count {
+            h[0] = elem{word: word, count: count}
+            heap.Fix(h, 0)
+        }
+    }
+    sort.Slice(h, func(i, j int) bool { return h[i].count > h[j].count })
+    return h
+}
+
+func main() {
+    m := map[string]int{"the": 123, "this": 29, "house": 4, "hold": 8, "then": 27}
+    r := mostFrequentWords(m, 3)
+    for i := range r {
+        fmt.Println(r[i])
+    }
+}

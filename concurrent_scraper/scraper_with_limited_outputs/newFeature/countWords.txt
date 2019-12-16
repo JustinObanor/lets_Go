@@ -1,0 +1,32 @@
+func countWordsIn(text string) map[string]int {
+    var wordBegPos, runeCount int
+    wordCounts := make(map[string]int)
+    for i, c := range text {
+        if unicode.IsLetter(c) || unicode.IsNumber(c) {
+            if runeCount == 0 {
+                wordBegPos = i
+            }
+            runeCount++
+            continue
+        }
+        if runeCount > 3 {
+            word := text[wordBegPos:i]
+            count := wordCounts[word] // return 0 if word is not in wordCounts
+            count++
+            wordCounts[word] = count
+        }
+        runeCount = 0
+    }
+    return wordCounts
+}
+
+If you have to accumulate the word counts of different RFC text files, you need to accumulate the maps. You do it like this:
+
+
+
+var totalWordCounts = make(map[string]int)
+func accumulateWordCounts(wordCounts map[string]int) {
+    for key, value := range wordCounts {
+        totalWordCounts[key] = totalWordCounts[key] + value
+    }
+}
