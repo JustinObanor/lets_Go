@@ -1,27 +1,48 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
+
+	_ "github.com/lib/pq"
 )
 
-//TimeLog is the data being parsed from site
-type TimeLog struct {
-	TimeLog []DataLog `json:"timelog"`
+const (
+	host     = "localhost"
+	port     = 5432
+	user     = "justin"
+	password = "1999"
+	dbname   = "timestamp"
+)
+
+var db *sql.DB
+
+func init() {
+	var err error
+	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
+
+	db, err = sql.Open("postgres", psqlInfo)
+	if err != nil {
+		panic(err)
+	}
 }
 
 //DataLog is the json attributes to be parsed
 type DataLog struct {
-	ID              int    `json:"$id"`
-	CurrentDateTime string `json:"currentDateTime"`
-	CurrentFileTime int64  `json:"currentFileTime"`
+	ID              int `json:"$id"`
+	CurrentFileTime int `json:"currentFileTime"`
 }
 
+type insert int
+
+type all int
+
 //ServeHTTP gets the body
-func ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (i insert) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	url := "http://worldclockapi.com/api/json/utc/now"
 	res, err := http.Get(url)
 	if err != nil {
@@ -29,21 +50,61 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	defer res.Body.Close()
 
-	data := TimeLog{}
-	s := make([]TimeLog, 0)
+	data := DataLog{}
 
 	b, err := ioutil.ReadAll(res.Body)
 
-	json.Unmarshal(b, &data)
+	s := make([]DataLog, 0)
 
+	json.Unmarshal(b, &data)
 	s = append(s, data)
 
-	for i := 0; i < len(data.TimeLog); i++ {
-		fmt.Printf("ID : %d\t Date : %s\t Time : %v", data.TimeLog[i].ID, data.TimeLog[i].CurrentDateTime, data.TimeLog[i].CurrentFileTime)
+	for _, v := range s {
+		t := v.CurrentFileTime
+
+		_, err = db.Exec("INSERT INTO timetable (time) VALUES ($1)", t)
+		if err != nil {
+			panic(err)
+		}
+
+		fmt.Printf("Current Info : [ID : %d\t  Time : %v]\n", v.ID, v.CurrentFileTime)
+	}
+}
+
+//SelectAll func selects all rows from db
+func (s all) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	rows, err := db.Query("SELECT * FROM timetable")
+	if err != nil {
+		panic(err)
+	}
+
+	defer rows.Close()
+
+	stamps := make([]DataLog, 0)
+	for rows.Next() {
+		stamp := DataLog{}
+		err = rows.Scan(&stamp.ID, &stamp.CurrentFileTime)
+		if err != nil {
+			panic(err)
+		}
+		stamps = append(stamps, stamp)
+	}
+	if err = rows.Err(); err != nil {
+		panic(err)
+	}
+	for _, v := range stamps {
+		fmt.Printf("Time %d : %d\n", v.ID, v.CurrentFileTime)
 	}
 }
 
 func main() {
-	http.HandleFunc("/", ServeHTTP)
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	var i insert
+	var s all
+
+	mux := http.NewServeMux()
+	mux.Handle("/", i)
+	mux.Handle("/all", s)
+	
+
+	log.Fatal(http.ListenAndServe(":8080", mux))
 }
