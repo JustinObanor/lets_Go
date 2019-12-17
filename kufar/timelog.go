@@ -38,14 +38,10 @@ type DataLog struct {
 	CurrentFileTime int `json:"currentFileTime"`
 }
 
-type insert int
-
 type all int
+type loader int
 
-//ServeHTTP gets the body
-func (i insert) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	
-
+func (lo loader)ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	url := "http://worldclockapi.com/api/json/utc/now"
 	res, err := http.Get(url)
 	if err != nil {
@@ -60,21 +56,38 @@ func (i insert) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s := make([]DataLog, 0)
 
 	json.Unmarshal(b, &data)
+
 	s = append(s, data)
 
-	for _, v := range s {
-		t := v.CurrentFileTime
+		ticker := time.NewTicker(10 * time.Second)
+		c := make(chan int)
+		d := make(chan bool)
 
-		_, err = db.Exec("INSERT INTO timetable (time) VALUES ($1)", t)
+		go func() {
+			for _, v := range s {
+			select {
+			case <-ticker.C:
+				c <- v.CurrentFileTime
+			case <-d:
+				return
+			}
+		}
+			close(c)
+		}()
+
+		for v := range c{
+		_, err = db.Exec("INSERT INTO timetable (time) VALUES ($1)", v)
 		if err != nil {
 			panic(err)
 		}
-
-		fmt.Fprintf(w,"Current Info : [ID : %d\t  Time : %v]\n", v.ID, v.CurrentFileTime)
 	}
+
+	for _, v := range s {
+		fmt.Fprintf(w, "Current Info : [ID : %d\t  Time : %v]\n", v.ID, v.CurrentFileTime)
+	}
+
 }
 
-//SelectAll func selects all rows from db
 func (s all) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.Query("SELECT * FROM timetable")
 	if err != nil {
@@ -96,19 +109,18 @@ func (s all) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 	for _, v := range stamps {
-		fmt.Fprintf(w,"Time %d : %d\n", v.ID, v.CurrentFileTime)
+		fmt.Fprintf(w, "Time %d : %d\n", v.ID, v.CurrentFileTime)
 	}
 }
 
 func main() {
-	var i insert
 	var s all
+	var lo loader
+
 
 	mux := http.NewServeMux()
-	mux.Handle("/insert", i)
+	mux.Handle("/", lo)
 	mux.Handle("/all", s)
 
-	tout := http.TimeoutHandler(mux, time.Second, "Timeout!")
-
-	log.Fatal(http.ListenAndServe(":8080", tout))
+	log.Fatal(http.ListenAndServe(":8080", mux))
 }
