@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"time"
 
 	_ "github.com/lib/pq"
 )
@@ -43,6 +44,8 @@ type all int
 
 //ServeHTTP gets the body
 func (i insert) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	
+
 	url := "http://worldclockapi.com/api/json/utc/now"
 	res, err := http.Get(url)
 	if err != nil {
@@ -67,7 +70,7 @@ func (i insert) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			panic(err)
 		}
 
-		fmt.Printf("Current Info : [ID : %d\t  Time : %v]\n", v.ID, v.CurrentFileTime)
+		fmt.Fprintf(w,"Current Info : [ID : %d\t  Time : %v]\n", v.ID, v.CurrentFileTime)
 	}
 }
 
@@ -93,7 +96,7 @@ func (s all) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 	for _, v := range stamps {
-		fmt.Printf("Time %d : %d\n", v.ID, v.CurrentFileTime)
+		fmt.Fprintf(w,"Time %d : %d\n", v.ID, v.CurrentFileTime)
 	}
 }
 
@@ -102,9 +105,10 @@ func main() {
 	var s all
 
 	mux := http.NewServeMux()
-	mux.Handle("/", i)
+	mux.Handle("/insert", i)
 	mux.Handle("/all", s)
-	
 
-	log.Fatal(http.ListenAndServe(":8080", mux))
+	tout := http.TimeoutHandler(mux, time.Second, "Timeout!")
+
+	log.Fatal(http.ListenAndServe(":8080", tout))
 }
