@@ -6,16 +6,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-
-	_ "github.com/lib/pq"
-)
-
-const (
-	host     = "localhost"
-	port     = 5432
-	user     = "justin"
-	password = "1999"
-	dbname   = "timestamp"
 )
 
 //TimeLog is the data being parsed from site
