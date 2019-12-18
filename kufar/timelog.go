@@ -136,17 +136,10 @@ func (ro row) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 
-	var wg sync.WaitGroup
-
-	wg.Add(1)
-
-	go func() {
 		for _, v := range s {
 			fmt.Fprintf(w, "Current Time : [ID : %d\t  Time : %v]\n", v.ID, v.CurrentFileTime)
 		}
-		wg.Done()
-	}()
-	wg.Wait()
+		
 }
 
 type all int
