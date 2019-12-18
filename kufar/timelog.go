@@ -42,7 +42,7 @@ type DataLog struct {
 	CurrentFileTime int `json:"currentFileTime"`
 }
 
-func getter(url string) []DataLog{
+func getter(url string) []DataLog {
 	res, err := http.Get(url)
 	if err != nil {
 		log.Fatal(err)
@@ -107,6 +107,7 @@ func Puller(c chan DataLog, d chan bool) {
 }
 
 type row int
+
 func (o row) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.Query("select * from timetable order by id desc limit 1")
 	if err != nil {
@@ -128,18 +129,14 @@ func (o row) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 
-	wg.Add(1)
-		go func(){
-			for _, v := range s {
-				fmt.Fprintf(w, "Current Time : [ID : %d\t  Time : %v]\n", v.ID, v.CurrentFileTime)
-			}
-			wg.Done()
-		}()
-	wg.Wait()	
-		
+	for _, v := range s {
+		fmt.Fprintf(w, "Current Time : [ID : %d\t  Time : %v]\n", v.ID, v.CurrentFileTime)
+	}
+
 }
 
 type all int
+
 func (s all) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.Query("SELECT * FROM timetable")
 	if err != nil {
@@ -160,7 +157,7 @@ func (s all) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err = rows.Err(); err != nil {
 		panic(err)
 	}
-	
+
 	for _, v := range stamps {
 		fmt.Fprintf(w, "Time %d : %d\n", v.ID, v.CurrentFileTime)
 	}
