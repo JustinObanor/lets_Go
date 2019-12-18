@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"sync"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -41,6 +42,9 @@ type DataLog struct {
 type all int
 type loader int
 
+var wg sync.WaitGroup
+
+
 func (lo loader)ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	url := "http://worldclockapi.com/api/json/utc/now"
 	res, err := http.Get(url)
@@ -62,6 +66,7 @@ func (lo loader)ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ticker := time.NewTicker(10 * time.Second)
 		c := make(chan int)
 		d := make(chan bool)
+		
 
 		go func() {
 			for _, v := range s {
@@ -82,10 +87,35 @@ func (lo loader)ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	for _, v := range s {
-		fmt.Fprintf(w, "Current Info : [ID : %d\t  Time : %v]\n", v.ID, v.CurrentFileTime)
+	rows, err := db.Query("select * from timetable order by id desc limit 1")
+	if err != nil {
+		panic(err)
 	}
 
+	defer rows.Close()
+
+	stamps := make([]DataLog, 0)
+	for rows.Next() {
+		stamp := DataLog{}
+		err = rows.Scan(&stamp.ID, &stamp.CurrentFileTime)
+		if err != nil {
+			panic(err)
+		}
+		stamps = append(stamps, stamp)
+	}
+	if err = rows.Err(); err != nil {
+		panic(err)
+	}
+
+wg.Add(1)
+	
+go func(){
+	for _, v := range stamps {
+		fmt.Fprintf(w, "Current Time : [ID : %d\t  Time : %v]\n", v.ID, v.CurrentFileTime)
+	}
+	wg.Done()
+}()
+wg.Wait()
 }
 
 func (s all) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -121,6 +151,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.Handle("/", lo)
 	mux.Handle("/all", s)
+
 
 	log.Fatal(http.ListenAndServe(":8080", mux))
 }
