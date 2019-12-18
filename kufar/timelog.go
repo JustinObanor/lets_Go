@@ -24,6 +24,7 @@ const (
 var wg sync.WaitGroup
 var db *sql.DB
 var w http.ResponseWriter
+var data DataLog
 
 func init() {
 	var err error
@@ -41,21 +42,27 @@ type DataLog struct {
 	CurrentFileTime int `json:"currentFileTime"`
 }
 
-//Worker func loads data to db
-func Worker(url string, c chan DataLog, d chan bool) {
+func getter(url string) []DataLog{
 	res, err := http.Get(url)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer res.Body.Close()
 
-	data := DataLog{}
+	data = DataLog{}
 
 	b, err := ioutil.ReadAll(res.Body)
 
 	s := make([]DataLog, 0)
 
 	json.Unmarshal(b, &data)
+
+	return s
+}
+
+//Worker func loads data to chan
+func Worker(url string, c chan DataLog, d chan bool) {
+	s := getter(url)
 
 	s = append(s, data)
 
@@ -68,21 +75,7 @@ func Worker(url string, c chan DataLog, d chan bool) {
 	for {
 		select {
 		case <-ticker.C:
-			res, err := http.Get(url)
-			if err != nil {
-				log.Fatal(err)
-			}
-			defer res.Body.Close()
-
-			data := DataLog{}
-
-			b, err := ioutil.ReadAll(res.Body)
-
-			s := make([]DataLog, 0)
-
-			json.Unmarshal(b, &data)
-
-			s = append(s, data)
+			s := getter(url)
 
 			for _, v := range s {
 				c <- DataLog{v.ID, v.CurrentFileTime}
@@ -114,8 +107,7 @@ func Puller(c chan DataLog, d chan bool) {
 }
 
 type row int
-
-func (ro row) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (o row) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.Query("select * from timetable order by id desc limit 1")
 	if err != nil {
 		panic(err)
@@ -136,14 +128,18 @@ func (ro row) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 
-		for _, v := range s {
-			fmt.Fprintf(w, "Current Time : [ID : %d\t  Time : %v]\n", v.ID, v.CurrentFileTime)
-		}
+	wg.Add(1)
+		go func(){
+			for _, v := range s {
+				fmt.Fprintf(w, "Current Time : [ID : %d\t  Time : %v]\n", v.ID, v.CurrentFileTime)
+			}
+			wg.Done()
+		}()
+	wg.Wait()	
 		
 }
 
 type all int
-
 func (s all) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.Query("SELECT * FROM timetable")
 	if err != nil {
@@ -164,6 +160,7 @@ func (s all) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err = rows.Err(); err != nil {
 		panic(err)
 	}
+	
 	for _, v := range stamps {
 		fmt.Fprintf(w, "Time %d : %d\n", v.ID, v.CurrentFileTime)
 	}
