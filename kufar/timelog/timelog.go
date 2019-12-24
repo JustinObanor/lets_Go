@@ -70,7 +70,7 @@ func Worker(url string, c chan DataLog, d chan bool) {
 		c <- DataLog{v.ID, v.CurrentFileTime}
 	}
 
-	ticker := time.NewTicker(10 * time.Second)
+	ticker := time.NewTicker(5 * time.Second)
 
 	for {
 		select {
