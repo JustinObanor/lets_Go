@@ -3,29 +3,19 @@ package main
 import "fmt"
 
 func main() {
-	var length int
-
-	fmt.Println("Input length :")
-	fmt.Scan(&length)
-
-	var width int
-
-	fmt.Println("Input width :")
-	fmt.Scan(&width)
-
-	var choice int
-
-	fmt.Println("Input choice :")
-	fmt.Scan(&choice)
-
-	calc(choice, length, width)
+	s := []int{1, 4, 3, 6, 7, 8, 5}
+	bubbleSort(s)
+	fmt.Println(s)
 }
 
-func calc(choice, l, w int) {
-	switch choice {
-	case 1:
-		fmt.Println(l * w)
-	case 2:
-		fmt.Println(2 * (l + w))
+func bubbleSort(s []int) {
+var n = len(s)
+for i := 0; i < n; i++{
+var minIdx = i
+for j := i; j < n; j++{
+	if s[j] < s[minIdx]{
+		minIdx = j
 	}
+}
+}
 }
