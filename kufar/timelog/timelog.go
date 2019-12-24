@@ -38,7 +38,7 @@ func init() {
 
 //DataLog is the json attributes to be parsed
 type DataLog struct {
-	ID              int `json:"$id"`
+	ID              int `json:$id`
 	CurrentFileTime int `json:"currentFileTime"`
 }
 
@@ -55,7 +55,11 @@ func getter(url string) []DataLog {
 
 	s := make([]DataLog, 0)
 
-	json.Unmarshal(b, &data)
+	err = json.Unmarshal(b, &data)
+	if err != nil {
+		log.Fatal(err)
+	}
+	s = append(s, data)
 
 	return s
 }
@@ -64,13 +68,11 @@ func getter(url string) []DataLog {
 func Worker(url string, c chan DataLog, d chan bool) {
 	s := getter(url)
 
-	s = append(s, data)
-
 	for _, v := range s {
 		c <- DataLog{v.ID, v.CurrentFileTime}
 	}
 
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(time.Second)
 
 	for {
 		select {
@@ -118,12 +120,11 @@ func (o row) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	s := make([]DataLog, 0)
 	for rows.Next() {
-		ctime := DataLog{}
-		err = rows.Scan(&ctime.ID, &ctime.CurrentFileTime)
+		err = rows.Scan(&data.ID, &data.CurrentFileTime)
 		if err != nil {
 			panic(err)
 		}
-		s = append(s, ctime)
+		s = append(s, data)
 	}
 	if err = rows.Err(); err != nil {
 		panic(err)
@@ -147,12 +148,11 @@ func (s all) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	stamps := make([]DataLog, 0)
 	for rows.Next() {
-		stamp := DataLog{}
-		err = rows.Scan(&stamp.ID, &stamp.CurrentFileTime)
+		err = rows.Scan(&data.ID, &data.CurrentFileTime)
 		if err != nil {
 			panic(err)
 		}
-		stamps = append(stamps, stamp)
+		stamps = append(stamps, data)
 	}
 	if err = rows.Err(); err != nil {
 		panic(err)
