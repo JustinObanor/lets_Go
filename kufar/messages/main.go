@@ -4,11 +4,10 @@ import (
 	"database/sql"
 	"fmt"
 	"html/template"
-	"log"
 	"os"
+	"strings"
 
 	_ "github.com/lib/pq"
-	"github.com/lib/pq"
 )
 
 const (
@@ -22,16 +21,10 @@ const (
 var db *sql.DB
 var tpl *template.Template
 
-//Data struct containing message and name
-type Data struct {
-	Msg  string
-	Name string
-}
-
 //DataDB struct containing id and info to be saved in db
 type DataDB struct {
-	ID int
-	Data 
+	ID  int
+	Msg string
 }
 
 func init() {
@@ -46,31 +39,77 @@ func init() {
 }
 
 func main() {
-	justin := DataDB{ID:1,	Data: Data {Msg: "Justin", Name: "ABC"}}
-	ruben :=  DataDB{ID:2,	Data: Data {Msg: "Ruben", Name: "tratata"}}
-	petyaT := DataDB{ID:1,	Data: Data {Msg: "Petya Tereodor Pidgallo", Name: "ololol"}}
 
-	datas := []DataDB{justin, ruben, petyaT}
+	//http.HandleFunc("/", msgIndex)
 
-	tpl, err := template.New("msgs").Parse(` {{range .}}
-	 Hello {{.Data.Msg}}, my name is {{.Data.Name}}
-	 {{end}}
-	 `)
+	var name = "justin"
+	var msg = "abc"
+
+	justin := DataDB{
+		ID:  1,
+		Msg: fmt.Sprintf("%s %s", name, msg),
+	}
+	//s := []DataDB{justin}
+
+	msgs := strings.Split(justin.Msg, " ")
+	fmt.Println(msgs[0])
+	fmt.Println(msgs[len(msgs)-1])
+
+	tpl, err := template.New("datas").Parse(`{{range .}} Hello {{. msgs[0]}}, name is {{. msgs[len(msgs)-1]}}`)
 	if err != nil {
 		panic(err)
 	}
+	// for _, v := range datas {
+	// 	s := []string{v.Data.Msg, v.Data.Name}
+	// 	_, err = db.Exec("INSERT INTO datadb (id, data) VALUES($1, $2)", v.ID, pq.Array(s))
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
+	// }
 
-	err = tpl.Execute(os.Stdout, datas)
-
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	for _, v := range datas {
-		s := []string{v.Data.Msg,v.Data.Name}
-		_, err = db.Exec("INSERT INTO datadb (id, data) VALUES($1, $2)", v.ID, pq.Array(s))
-		if err != nil {
-			panic(err)
-		}
-	}
+	tpl.Execute(os.Stdout, msgs)
 }
+
+// func createMsg(w http.ResponseWriter, r *http.Request) {
+// 	if r.Method != "POST" {
+// 		http.Error(w, http.StatusText(405), http.StatusMethodNotAllowed)
+// 		return
+// 	}
+// 	d := DataDB{}
+// 	out, err := json.Marshal(d)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+
+// 	i := r.FormValue("id")
+// 	d.Data = r.FormValue("out")
+// }
+
+// func msgIndex(w http.ResponseWriter, r *http.Request) {
+// 	if r.Method != "GET" {
+// 		http.Error(w, http.StatusText(405), http.StatusMethodNotAllowed)
+// 		return
+// 	}
+
+// 	rows, err := db.Query("SELECT * FROM datadb")
+// 	if err != nil {
+// 		http.Error(w, http.StatusText(500), 500)
+// 		return
+// 	}
+// 	defer rows.Close()
+
+// 	ds := make([]DataDB, 0)
+// 	for rows.Next() {
+// 		d := DataDB{}
+// 		err := rows.Scan(&d.ID, &d.Data)
+// 		if err != nil {
+// 			http.Error(w, http.StatusText(500), 500)
+// 			return
+// 		}
+// 		ds = append(ds, d)
+// 	}
+// 	if err = rows.Err(); err != nil {
+// 		http.Error(w, http.StatusText(500), 500)
+// 		return
+// 	}
+// }
