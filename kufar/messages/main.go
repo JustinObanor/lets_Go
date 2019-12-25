@@ -39,8 +39,8 @@ func init() {
 }
 
 func main() {
-
-	//http.HandleFunc("/", msgIndex)
+	//feature1
+	//http.HandleFunc("/", msgIndex)x
 
 	var name = "justin"
 	var msg = "abc"
