@@ -59,7 +59,7 @@ func getter(url string) []DataLog {
 	if err != nil {
 		log.Fatal(err)
 	}
-	//appending data from JSON to slice s
+	//appending data from JSON to slice
 	s = append(s, data)
 
 	return s
