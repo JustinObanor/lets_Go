@@ -2,20 +2,22 @@ package main
 
 import "fmt"
 
-func main() {
-	s := []int{1, 4, 3, 6, 7, 8, 5}
-	bubbleSort(s)
-	fmt.Println(s)
+type Marks struct {
+	fname, lname string
 }
 
-func bubbleSort(s []int) {
-var n = len(s)
-for i := 0; i < n; i++{
-var minIdx = i
-for j := i; j < n; j++{
-	if s[j] < s[minIdx]{
-		minIdx = j
+func main() {
+	marks := make([]Marks, 0)
+	marks = append(marks, Marks{
+		fname: "Justin",
+		lname: "Obanor",
+	})
+	c := make(chan []Marks)
+	go func() {
+		c <- marks
+	}()
+	for i := 0; i < len(marks); i++ {
+		v := <-c
+		fmt.Println(v[i].fname, v[i].lname)
 	}
-}
-}
 }
