@@ -42,6 +42,7 @@ func (a *AccountAsync) Deposit(amount float64) error {
 
 // Аналогично, по сути эта функция нужна только для сохранения семантики
 func (a *AccountAsync) Withdraw(amount float64) error {
+	//amount always positive, so we can send -amount to channel
 	a.deltaChan <- -amount
 	return <-a.errChan
 }
