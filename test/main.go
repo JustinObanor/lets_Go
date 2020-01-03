@@ -90,7 +90,7 @@ func main() {
 			for j := 0; j < 10; j++ {
 				// Иногда снимает деньги
 				if j%2 == 1 {
-					acc.Withdraw(50)
+					acc.Withdraw(100)
 					continue
 				}
 				// иногда кладет
