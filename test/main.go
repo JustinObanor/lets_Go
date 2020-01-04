@@ -1,32 +1,36 @@
 package main
 
-import "time"
-
-import "fmt"
+import (
+	"bufio"
+	"fmt"
+	"net"
+)
 
 func main() {
-	c := make(chan string)
+	l, _ := net.Listen("tcp", ":8080")
 
-	go func() {
-		time.Sleep(time.Second)
-		c <- "hello there"
-	}()
+	for {
+		conn, err := l.Accept()
 
-	go func() {
-		time.Sleep(time.Second * 2)
-		c <- "general kenobi"
-	}()
-
-	for i := 0; i < 2; i++ {
-		select {
-		case msg1 := <-c:
-			fmt.Println(msg1)
-		case msg1 := <-c:
-			fmt.Println(msg1)
-		case <-time.After(time.Second * 3):
-			fmt.Println("timed out")
-		default:
-			fmt.Println("nothing received")
+		if err != nil {
+			fmt.Println("Cant connect")
+			conn.Close()
+			continue
 		}
+		fmt.Println("connected")
+		bufReader := bufio.NewReader(conn)
+		fmt.Println("Started reading")
+
+		go func(conn net.Conn) {
+			defer conn.Close()
+			for {
+				b, err := bufReader.ReadByte()
+				if err != nil {
+					fmt.Println("cant read", err)
+					break
+				}
+				fmt.Print(string(b))
+			}
+		}(conn)
 	}
 }
