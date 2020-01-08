@@ -80,7 +80,7 @@ func worker(url string, c chan DataLog, d chan bool) {
 		c <- DataLog{v.ID, v.Time}
 	}
 
-	ticker := time.NewTicker(time.Second)
+	ticker := time.NewTicker(time.Second * 5)
 
 	for {
 		select {
