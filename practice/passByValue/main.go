@@ -9,7 +9,7 @@ func main() {
 	age := 20
 	bday(age)        //pass by value(a copy) and add age by 1
 	fmt.Println(age) //21
-	//agee = bday(age)  assigning the new modified value back to age
+	//age = bday(age)  assigning the new modified value back to age
 	birthyear := calc(age) //pass by value(a copy) but not the prevous copy
 	fmt.Println(birthyear)
 }
