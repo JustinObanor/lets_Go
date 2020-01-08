@@ -7,19 +7,18 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
 	_ "github.com/lib/pq"
 )
 
-const (
-	host     = "localhost"
-	port     = 5432
-	user     = "justin"
-	password = "1999"
-	dbname   = "timestamp"
-)
+var host = getenv("PSQL_HOST", "localhost")
+var port = getenv("PSQL_PORT", "5432")
+var user = getenv("PSQL_USER", "justin")
+var password = getenv("PSQL_PWDcas", "1999")
+var dbname = getenv("PSQL_DB_NAME", "timestamp")
 
 var wg sync.WaitGroup
 var db *sql.DB
@@ -28,7 +27,8 @@ var data DataLog
 
 func init() {
 	var err error
-	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
+	psqlInfo := fmt.Sprintf(`host=%s port=%s user=%s
+	password=%s dbname=%s sslmode=disable`, host, port, user, password, dbname)
 
 	db, err = sql.Open("postgres", psqlInfo)
 	if err != nil {
@@ -36,10 +36,16 @@ func init() {
 	}
 }
 
-//DataLog is the json attributes to be parsed
+func getenv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
+}
+
 type DataLog struct {
-	ID              int `json:$id`
-	CurrentFileTime int `json:"currentFileTime"`
+	ID   int    `json:$id`
+	Time string `json:"currentDateTime"`
 }
 
 func getter(url string) []DataLog {
@@ -52,6 +58,9 @@ func getter(url string) []DataLog {
 	data = DataLog{}
 
 	b, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	s := make([]DataLog, 0)
 
@@ -59,18 +68,16 @@ func getter(url string) []DataLog {
 	if err != nil {
 		log.Fatal(err)
 	}
-	//appending data from JSON to slice
 	s = append(s, data)
 
 	return s
 }
 
-//Worker func loads data to chan
-func Worker(url string, c chan DataLog, d chan bool) {
+func worker(url string, c chan DataLog, d chan bool) {
 	s := getter(url)
 
 	for _, v := range s {
-		c <- DataLog{v.ID, v.CurrentFileTime}
+		c <- DataLog{v.ID, v.Time}
 	}
 
 	ticker := time.NewTicker(time.Second)
@@ -79,40 +86,38 @@ func Worker(url string, c chan DataLog, d chan bool) {
 		select {
 		case <-ticker.C:
 			s := getter(url)
-
 			for _, v := range s {
-				c <- DataLog{v.ID, v.CurrentFileTime}
+				c <- DataLog{v.ID, v.Time}
 			}
 
 		case <-d:
-			fmt.Fprint(w, "Worker finished work")
+			fmt.Println("Worker finished work")
 			wg.Done()
 			return
 		}
 	}
 }
 
-//Puller retrieves data from chan
-func Puller(c chan DataLog, d chan bool) {
+func puller(c chan DataLog, d chan bool) {
+	insQuery := "INSERT INTO timetable (time) VALUES ($1)"
 	for {
 		select {
 		case v := <-c:
-			_, err := db.Exec("INSERT INTO timetable (time) VALUES ($1)", v.CurrentFileTime)
+			_, err := db.Exec(insQuery, v.Time)
 			if err != nil {
 				panic(err)
 			}
 		case <-d:
-			fmt.Fprint(w, "Puller finished pulling")
+			fmt.Println("Puller finished pulling")
 			wg.Done()
 			return
 		}
 	}
 }
 
-type row int
-
-func (o row) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	rows, err := db.Query("select * from timetable order by id desc limit 1")
+func recentTime(w http.ResponseWriter, _ *http.Request) {
+	selQuery := "select * from timetable order by id desc limit 1"
+	rows, err := db.Query(selQuery)
 	if err != nil {
 		panic(err)
 	}
@@ -121,7 +126,7 @@ func (o row) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	s := make([]DataLog, 0)
 	for rows.Next() {
-		err = rows.Scan(&data.ID, &data.CurrentFileTime)
+		err = rows.Scan(&data.ID, &data.Time)
 		if err != nil {
 			panic(err)
 		}
@@ -132,15 +137,14 @@ func (o row) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, v := range s {
-		fmt.Fprintf(w, "Current Time : [ID : %d\t  Time : %v]\n", v.ID, v.CurrentFileTime)
+		fmt.Fprintf(w, "Current Time : [ID : %d\t  Time : %v]\n", v.ID, v.Time)
 	}
 
 }
 
-type all int
-
-func (s all) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	rows, err := db.Query("SELECT * FROM timetable")
+func allTime(w http.ResponseWriter, _ *http.Request) {
+	selQuery := "SELECT * FROM timetable"
+	rows, err := db.Query(selQuery)
 	if err != nil {
 		panic(err)
 	}
@@ -149,7 +153,7 @@ func (s all) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	stamps := make([]DataLog, 0)
 	for rows.Next() {
-		err = rows.Scan(&data.ID, &data.CurrentFileTime)
+		err = rows.Scan(&data.ID, &data.Time)
 		if err != nil {
 			panic(err)
 		}
@@ -160,25 +164,22 @@ func (s all) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, v := range stamps {
-		fmt.Fprintf(w, "Time %d : %d\n", v.ID, v.CurrentFileTime)
+		fmt.Fprintf(w, "Time %d : %v\n", v.ID, v.Time)
 	}
 }
 
 func main() {
-	var s all
-	var o row
 	url := "http://worldclockapi.com/api/json/utc/now"
 
 	c := make(chan DataLog)
 	d := make(chan bool)
 
 	wg.Add(2)
-	go Worker(url, c, d)
-	go Puller(c, d)
+	go worker(url, c, d)
+	go puller(c, d)
 
-	mux := http.NewServeMux()
-	mux.Handle("/", o)
-	mux.Handle("/all", s)
-	log.Fatal(http.ListenAndServe(":8080", mux))
+	http.HandleFunc("/", recentTime)
+	http.HandleFunc("/all", allTime)
+	log.Fatal(http.ListenAndServe(":8080", nil))
 	wg.Wait()
 }
