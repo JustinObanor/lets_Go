@@ -1,26 +1,31 @@
 package main
 
-import "text/template"
+import (
+	"fmt"
+)
 
-import "log"
+//interface definition
+type VowelsFinder interface {
+	FindVowels() []rune
+}
 
-import "net/http"
+type MyString string
 
-import "strconv"
-
-type ToDo struct{
-	Name string
-	Done bool
+//MyString implements VowelsFinder
+func (ms MyString) FindVowels() []rune {
+	var vowels []rune
+	for _, rune := range ms {
+		if rune == 'a' || rune == 'e' || rune == 'i' || rune == 'o' || rune == 'u' {
+			vowels = append(vowels, rune)
+		}
+	}
+	return vowels
 }
 
 func main() {
-	//making a template, and passing a function into it
-	tpl, err := template.New("template.html").Funcs(template.FuncMap{"IsNotDone":IsNotDone}).ParseFiles("template.html")
-	if err != nil{
-		log.Fatal("Cant expand template", err)
-		return
-        default:
-            fmt.Println("no value received")
-        }
-		}
+	name := MyString("Sam Anderson")
+	var v VowelsFinder
+	v = name // possible since MyString implements VowelsFinder
+	fmt.Printf("Vowels are %c", v.FindVowels())
+
 }
