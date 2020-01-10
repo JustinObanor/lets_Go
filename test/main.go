@@ -1,31 +1,35 @@
 package main
 
-import (
-	"fmt"
-)
+import "fmt"
 
-//interface definition
-type VowelsFinder interface {
-	FindVowels() []rune
+type testInt func(int) bool // define a function type of variable
+
+func isOdd(integer int) bool {
+    return integer%2 != 0
 }
 
-type MyString string
-
-//MyString implements VowelsFinder
-func (ms MyString) FindVowels() []rune {
-	var vowels []rune
-	for _, rune := range ms {
-		if rune == 'a' || rune == 'e' || rune == 'i' || rune == 'o' || rune == 'u' {
-			vowels = append(vowels, rune)
-		}
-	}
-	return vowels
+func isEven(integer int) bool {
+    return integer%2 == 0
 }
+
+// pass the function `f` as an argument to another function
+func filter(slice []int, f testInt) []int {
+    var result []int
+    for _, value := range slice {
+        if f(value) {
+            result = append(result, value)
+        }
+    }
+    return result
+}
+
+var slice = []int{1, 2, 3, 4, 5, 7}
 
 func main() {
-	name := MyString("Sam Anderson")
-	var v VowelsFinder
-	v = name // possible since MyString implements VowelsFinder
-	fmt.Printf("Vowels are %c", v.FindVowels())
+  odd := filter(slice, isOdd)
+  even := filter(slice, isEven)
 
+  fmt.Println("slice = ", slice)
+    fmt.Println("Odd elements of slice are: ", odd)
+    fmt.Println("Even elements of slice are: ", even)
 }
