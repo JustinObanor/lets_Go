@@ -3,16 +3,16 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"strconv"
-	"io/ioutil"
 )
 
 type Todo struct {
-	Name      string `json:"name"`
-	Done      bool   `json:"done"`
+	Name string `json:"name"`
+	Done bool   `json:"done"`
 }
 
 func main() {
@@ -29,7 +29,7 @@ func main() {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		
+
 		// и выводим содержимое файла
 		w.Write(fileContents)
 	})

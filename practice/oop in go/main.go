@@ -55,6 +55,7 @@ func (bl BoxList) PaintItBlack() {
 }
 
 // method
+//outputs the colors
 func (c Color) String() string {
 	strings := []string{"WHITE", "BLACK", "BLUE", "RED", "YELLOW"}
 	return strings[c]

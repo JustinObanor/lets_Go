@@ -7,8 +7,6 @@ import (
 	"text/template"
 )
 
-
-
 func main() {
 	tpl, _ := template.New("main").Parse(`<div style="display: inline-block; border: 1px solid #aaa;
 	border-radius: 3px; padding:30px; margin:20px;">
