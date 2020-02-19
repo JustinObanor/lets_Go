@@ -65,7 +65,6 @@ type Database struct {
 }
 
 func validateResponse(books []Book) []BookResponse {
-
 	location, _ := time.LoadLocation("UTC")
 
 	resp := make([]BookResponse, len(books))
