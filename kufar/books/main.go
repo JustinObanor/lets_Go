@@ -64,17 +64,16 @@ type Database struct {
 	db *sql.DB
 }
 
-func validateResponse(books []Book) []BookResponse {
-	location, _ := time.LoadLocation("UTC")
+var location, _ = time.LoadLocation("Europe/Minsk")
 
-	resp := make([]BookResponse, len(books))
-	for i, v := range books {
-		resp[i].ID = v.ID
-		resp[i].Name = v.Name
-		resp[i].Author = v.Author
-		resp[i].Date = v.Date.In(location).Format(time.RFC1123)
+func convertToResponse(books Book) BookResponse {
+
+	return BookResponse{
+		ID:     books.ID,
+		Name:   books.Name,
+		Author: books.Author,
+		Date:   books.Date.In(location).Format(time.RFC1123),
 	}
-	return resp
 }
 
 //New constructor that return database
@@ -103,7 +102,7 @@ func (d *Database) CreateBook(w http.ResponseWriter, r *http.Request) {
 
 	json.NewDecoder(r.Body).Decode(&bk)
 
-	now := time.Now()
+	now := time.Now().UTC()
 
 	_, err := d.db.Exec("insert into books(id, name, author, date) values($1, $2, $3, $4)", bk.ID, bk.Name, bk.Author, now)
 	if err != nil {
@@ -114,7 +113,7 @@ func (d *Database) CreateBook(w http.ResponseWriter, r *http.Request) {
 }
 
 //ReadBooks ...
-func (d *Database) ReadBooks(w http.ResponseWriter, r *http.Request) {
+func (d Database) ReadBooks(w http.ResponseWriter, r *http.Request) {
 	rows, err := d.db.Query("select * from books order by id asc")
 
 	if err != nil {
@@ -129,20 +128,22 @@ func (d *Database) ReadBooks(w http.ResponseWriter, r *http.Request) {
 		err := rows.Scan(&bk.ID, &bk.Name, &bk.Author, &bk.Date)
 
 		if err != nil {
-			http.Error(w, http.StatusText(500), 500)
+			http.Error(w, http.StatusText(500), http.StatusInternalServerError)
 			return
 		}
 		bks = append(bks, bk)
 	}
+	var resps []BookResponse
+	for _, book := range bks {
+		resp := convertToResponse(book)
+		resps = append(resps, resp)
+	}
 
-	resp := validateResponse(bks)
-
-	json.NewEncoder(w).Encode(resp)
-
+	json.NewEncoder(w).Encode(resps)
 }
 
 //ReadBook ...
-func (d *Database) ReadBook(w http.ResponseWriter, r *http.Request) {
+func (d Database) ReadBook(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	idInt, _ := strconv.Atoi(id)
 
@@ -164,14 +165,7 @@ func (d *Database) ReadBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	location, _ := time.LoadLocation("UTC")
-
-	resp := BookResponse{
-		ID:     bk.ID,
-		Name:   bk.Name,
-		Author: bk.Author,
-		Date:   bk.Date.In(location).Format(time.RFC1123),
-	}
+	resp := convertToResponse(bk)
 
 	json.NewEncoder(w).Encode(resp)
 }
@@ -199,7 +193,7 @@ func (d *Database) UpdateBook(w http.ResponseWriter, r *http.Request) {
 }
 
 //DeleteBook ...
-func (d *Database) DeleteBook(w http.ResponseWriter, r *http.Request) {
+func (d Database) DeleteBook(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	idInt, _ := strconv.Atoi(id)
 
@@ -213,4 +207,5 @@ func (d *Database) DeleteBook(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(500), http.StatusInternalServerError)
 		return
 	}
+	w.Write([]byte(http.StatusText(200)))
 }
