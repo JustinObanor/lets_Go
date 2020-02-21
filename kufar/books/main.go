@@ -28,6 +28,8 @@ func main() {
 		log.Fatal("error connecting to db")
 	}
 
+	defer db.Close()
+
 	r.HandleFunc("/books", Create(*db)).Methods("POST")
 	r.HandleFunc("/books", ReadAll(*db)).Methods("GET")
 	r.HandleFunc("/books/{id}", Read(*db)).Methods("GET")
@@ -88,7 +90,7 @@ func New() (*Database, error) {
 	if err = db.Ping(); err != nil {
 		return nil, err
 	}
-	fmt.Println("You connected to your database.")
+	log.Println("You connected to your database.")
 
 	return &Database{
 		db: db,
@@ -96,23 +98,27 @@ func New() (*Database, error) {
 
 }
 
+//Close closes the conn
+func (d Database) Close() error {
+	return d.db.Close()
+}
+
 //CreateBook ...
 func (d Database) CreateBook(w http.ResponseWriter, r *http.Request) {
 	var bk Book
 
-	err := json.NewDecoder(r.Body).Decode(&bk)
-	if err != nil {
-		fmt.Printf("Error unmarshalling json: %v", err)
+	if err := json.NewDecoder(r.Body).Decode(&bk); err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+"Error unmarshalling json", http.StatusInternalServerError)
 	}
 
 	now := time.Now().UTC()
 
-	_, err = d.db.Exec("insert into books(id, name, author, date) values($1, $2, $3, $4)", bk.ID, bk.Name, bk.Author, now)
+	_, err := d.db.Exec("insert into books(id, name, author, date) values($1, $2, $3, $4)", bk.ID, bk.Name, bk.Author, now)
 	if err != nil {
-		http.Error(w, http.StatusText(500)+": could not add new books. Try changing id", http.StatusInternalServerError)
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not add new books. Try changing id", http.StatusInternalServerError)
 		return
 	}
-	w.Write([]byte(http.StatusText(200)))
+	w.Write([]byte(http.StatusText(http.StatusOK)))
 }
 
 //ReadBooks ...
@@ -120,7 +126,7 @@ func (d Database) ReadBooks(w http.ResponseWriter, r *http.Request) {
 	rows, err := d.db.Query("select * from books order by id asc")
 
 	if err != nil {
-		http.Error(w, http.StatusText(500)+": could not list books", http.StatusInternalServerError)
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not list books", http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -131,7 +137,7 @@ func (d Database) ReadBooks(w http.ResponseWriter, r *http.Request) {
 		err := rows.Scan(&bk.ID, &bk.Name, &bk.Author, &bk.Date)
 
 		if err != nil {
-			http.Error(w, http.StatusText(500), http.StatusInternalServerError)
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
 		bks = append(bks, bk)
@@ -143,9 +149,8 @@ func (d Database) ReadBooks(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(resps)
-	if err != nil {
-		fmt.Printf("Error marshalling json: %v", err)
+	if err := json.NewEncoder(w).Encode(resps); err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }
 
@@ -154,11 +159,11 @@ func (d Database) ReadBook(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
-		fmt.Printf("cant convert string: %v", err)
+		log.Printf("cant convert string: %v", err)
 	}
 
 	if id == "" {
-		http.Error(w, http.StatusText(400)+": missing parameter in url", http.StatusBadRequest)
+		http.Error(w, http.StatusText(http.StatusBadRequest)+": missing parameter in url", http.StatusBadRequest)
 		return
 	}
 
@@ -171,15 +176,14 @@ func (d Database) ReadBook(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	case err != nil:
-		http.Error(w, http.StatusText(500), http.StatusInternalServerError)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
 	resp := convertToResponse(bk)
 	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(resp)
-	if err != nil {
-		fmt.Printf("Error marshalling json: %v", err)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }
 
@@ -188,27 +192,26 @@ func (d Database) UpdateBook(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
-		fmt.Printf("cant convert string: %v", err)
+		log.Printf("cant convert string: %v", err)
 	}
 
 	if id == "" {
-		http.Error(w, http.StatusText(400)+": missing parameter in url", http.StatusBadRequest)
+		http.Error(w, http.StatusText(http.StatusBadRequest)+": missing parameter in url", http.StatusBadRequest)
 		return
 	}
 
 	bk := Book{}
 
-	err = json.NewDecoder(r.Body).Decode(&bk)
-	if err != nil {
-		fmt.Printf("Error unmarshalling json: %v", err)
+	if err := json.NewDecoder(r.Body).Decode(&bk); err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 
 	_, err = d.db.Exec("update books set id = $1, name = $2, author = $3, date = $4 where id = $1", idInt, bk.Name, bk.Author, bk.Date)
 	if err != nil {
-		http.Error(w, http.StatusText(500), http.StatusInternalServerError)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
-	w.Write([]byte(http.StatusText(200)))
+	w.Write([]byte(http.StatusText(http.StatusOK)))
 }
 
 //DeleteBook ...
@@ -216,18 +219,18 @@ func (d Database) DeleteBook(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
-		fmt.Printf("cant convert string: %v", err)
+		log.Printf("cant convert string: %v", err)
 	}
 
 	if id == "" {
-		http.Error(w, http.StatusText(400)+": missing parameter in url", http.StatusBadRequest)
+		http.Error(w, http.StatusText(http.StatusBadRequest)+": missing parameter in url", http.StatusBadRequest)
 		return
 	}
 
 	_, err = d.db.Exec("delete from books where id = $1", idInt)
 	if err != nil {
-		http.Error(w, http.StatusText(500), http.StatusInternalServerError)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
-	w.Write([]byte(http.StatusText(200)))
+	w.Write([]byte(http.StatusText(http.StatusOK)))
 }
