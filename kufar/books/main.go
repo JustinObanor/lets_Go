@@ -28,13 +28,12 @@ func main() {
 		log.Fatal("error connecting to db")
 	}
 
-	r.HandleFunc("/books", db.CreateBook).Methods("POST")
-	r.HandleFunc("/books", db.ReadBooks).Methods("GET")
-	r.HandleFunc("/books/{id}", db.ReadBook).Methods("GET")
-	r.HandleFunc("/books/{id}", db.UpdateBook).Methods("PUT")
-	r.HandleFunc("/books/{id}", db.DeleteBook).Methods("DELETE")
+	r.HandleFunc("/books", Create(*db)).Methods("POST")
+	r.HandleFunc("/books", ReadAll(*db)).Methods("GET")
+	r.HandleFunc("/books/{id}", Read(*db)).Methods("GET")
+	r.HandleFunc("/books/{id}", Update(*db)).Methods("PUT")
+	r.HandleFunc("/books/{id}", Delete(*db)).Methods("DELETE")
 	log.Fatal(http.ListenAndServe(":8080", r))
-
 }
 
 func getenv(key, fallback string) string {
@@ -97,14 +96,17 @@ func New() (*Database, error) {
 }
 
 //CreateBook ...
-func (d *Database) CreateBook(w http.ResponseWriter, r *http.Request) {
+func (d Database) CreateBook(w http.ResponseWriter, r *http.Request) {
 	var bk Book
 
-	json.NewDecoder(r.Body).Decode(&bk)
+	err := json.NewDecoder(r.Body).Decode(&bk)
+	if err != nil {
+		fmt.Printf("Error unmarshalling json: %v", err)
+	}
 
 	now := time.Now().UTC()
 
-	_, err := d.db.Exec("insert into books(id, name, author, date) values($1, $2, $3, $4)", bk.ID, bk.Name, bk.Author, now)
+	_, err = d.db.Exec("insert into books(id, name, author, date) values($1, $2, $3, $4)", bk.ID, bk.Name, bk.Author, now)
 	if err != nil {
 		http.Error(w, http.StatusText(500)+": could not add new books. Try changing id", http.StatusInternalServerError)
 		return
@@ -139,13 +141,20 @@ func (d Database) ReadBooks(w http.ResponseWriter, r *http.Request) {
 		resps = append(resps, resp)
 	}
 
-	json.NewEncoder(w).Encode(resps)
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(resps)
+	if err != nil {
+		fmt.Printf("Error marshalling json: %v", err)
+	}
 }
 
 //ReadBook ...
 func (d Database) ReadBook(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
-	idInt, _ := strconv.Atoi(id)
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		fmt.Printf("cant convert string: %v", err)
+	}
 
 	if id == "" {
 		http.Error(w, http.StatusText(400)+": missing parameter in url", http.StatusBadRequest)
@@ -155,7 +164,7 @@ func (d Database) ReadBook(w http.ResponseWriter, r *http.Request) {
 	row := d.db.QueryRow("select * from books where id = $1", idInt)
 
 	bk := Book{}
-	err := row.Scan(&bk.ID, &bk.Name, &bk.Author, &bk.Date)
+	err = row.Scan(&bk.ID, &bk.Name, &bk.Author, &bk.Date)
 	switch {
 	case err == sql.ErrNoRows:
 		http.NotFound(w, r)
@@ -166,12 +175,15 @@ func (d Database) ReadBook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := convertToResponse(bk)
-
-	json.NewEncoder(w).Encode(resp)
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(resp)
+	if err != nil {
+		fmt.Printf("Error marshalling json: %v", err)
+	}
 }
 
 //UpdateBook ...
-func (d *Database) UpdateBook(w http.ResponseWriter, r *http.Request) {
+func (d Database) UpdateBook(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	idInt, _ := strconv.Atoi(id)
 
@@ -182,9 +194,12 @@ func (d *Database) UpdateBook(w http.ResponseWriter, r *http.Request) {
 
 	bk := Book{}
 
-	json.NewDecoder(r.Body).Decode(&bk)
+	err := json.NewDecoder(r.Body).Decode(&bk)
+	if err != nil {
+		fmt.Printf("Error unmarshalling json: %v", err)
+	}
 
-	_, err := d.db.Exec("update books set id = $1, name = $2, author = $3, date = $4 where id = $1", idInt, bk.Name, bk.Author, bk.Date)
+	_, err = d.db.Exec("update books set id = $1, name = $2, author = $3, date = $4 where id = $1", idInt, bk.Name, bk.Author, bk.Date)
 	if err != nil {
 		http.Error(w, http.StatusText(500), http.StatusInternalServerError)
 		return
