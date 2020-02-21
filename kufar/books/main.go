@@ -51,6 +51,7 @@ type Book struct {
 	Date   time.Time
 }
 
+//BookResponse struct
 type BookResponse struct {
 	ID     int    `json:"id"`
 	Name   string `json:"name"`
@@ -185,7 +186,10 @@ func (d Database) ReadBook(w http.ResponseWriter, r *http.Request) {
 //UpdateBook ...
 func (d Database) UpdateBook(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
-	idInt, _ := strconv.Atoi(id)
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		fmt.Printf("cant convert string: %v", err)
+	}
 
 	if id == "" {
 		http.Error(w, http.StatusText(400)+": missing parameter in url", http.StatusBadRequest)
@@ -194,7 +198,7 @@ func (d Database) UpdateBook(w http.ResponseWriter, r *http.Request) {
 
 	bk := Book{}
 
-	err := json.NewDecoder(r.Body).Decode(&bk)
+	err = json.NewDecoder(r.Body).Decode(&bk)
 	if err != nil {
 		fmt.Printf("Error unmarshalling json: %v", err)
 	}
@@ -210,14 +214,17 @@ func (d Database) UpdateBook(w http.ResponseWriter, r *http.Request) {
 //DeleteBook ...
 func (d Database) DeleteBook(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
-	idInt, _ := strconv.Atoi(id)
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		fmt.Printf("cant convert string: %v", err)
+	}
 
 	if id == "" {
 		http.Error(w, http.StatusText(400)+": missing parameter in url", http.StatusBadRequest)
 		return
 	}
 
-	_, err := d.db.Exec("delete from books where id = $1", idInt)
+	_, err = d.db.Exec("delete from books where id = $1", idInt)
 	if err != nil {
 		http.Error(w, http.StatusText(500), http.StatusInternalServerError)
 		return
