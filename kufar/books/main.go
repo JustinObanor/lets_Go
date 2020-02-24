@@ -15,11 +15,11 @@ import (
 	_ "github.com/lib/pq"
 )
 
-var host = getenv("PSQL_HOST", "localhost")
-var port = getenv("PSQL_PORT", "5440")
+var host = getenv("PSQL_HOST", "db")
+var port = getenv("PSQL_PORT", "5432")
 var user = getenv("PSQL_USER", "postgres")
-var password = getenv("PSQL_PWDcas", "justin")
-var dbname = getenv("PSQL_DB_NAME", "postgres")
+var password = getenv("PSQL_PWDcas", "postgres")
+var dbname = getenv("PSQL_DB_NAME", "books")
 
 func main() {
 	r := mux.NewRouter()

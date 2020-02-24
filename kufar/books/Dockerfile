@@ -1,9 +1,7 @@
 FROM golang:latest
-RUN mkdir /app
-ADD . /app
 WORKDIR /app
-RUN go get github.com/gorilla/mux
-RUN go get github.com/lib/pq
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
 RUN go build -o main .
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main .
-CMD ["/app/main"]
+CMD ["./main"]
