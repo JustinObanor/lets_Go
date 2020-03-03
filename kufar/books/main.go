@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"golang.org/x/crypto/bcrypt"
 
 	_ "github.com/lib/pq"
 )
@@ -25,11 +26,13 @@ func main() {
 	r := mux.NewRouter()
 	db, err := New()
 	if err != nil {
-		log.Fatal("error connecting to db")
+		log.Fatalf("error connecting to db: %v", err)
 	}
 
 	defer db.Close()
 
+	r.HandleFunc("/signup", SignUp(*db)).Methods("POST")
+	r.HandleFunc("/signin/{uuid}", SignIn(*db)).Methods("GET")
 	r.HandleFunc("/books", Create(*db)).Methods("POST")
 	r.HandleFunc("/books", ReadAll(*db)).Methods("GET")
 	r.HandleFunc("/books/{id}", Read(*db)).Methods("GET")
@@ -59,6 +62,13 @@ type BookResponse struct {
 	Name   string `json:"name"`
 	Author string `json:"author"`
 	Date   string `json:"date"`
+}
+
+//Credentials ...
+type Credentials struct {
+	UUID     int    
+	Username string 
+	Password string 
 }
 
 //Database ...
@@ -103,10 +113,76 @@ func (d Database) Close() error {
 	return d.db.Close()
 }
 
+//SignUpUser ...
+func (d Database) SignUpUser(w http.ResponseWriter, r *http.Request) {
+	cred := Credentials{}
+	if err := json.NewDecoder(r.Body).Decode(&cred); err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+"Error unmarshalling json", http.StatusInternalServerError)
+		return
+	}
+
+	pword, err := bcrypt.GenerateFromPassword([]byte(cred.Password), 8)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	if _, err = d.db.Exec("insert into credentials(uuid, username, password) values($1, $2, $3)", cred.UUID, cred.Username, string(pword)); err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not log in user. Try different uuid", http.StatusInternalServerError)
+		return
+	}
+	w.Write([]byte(http.StatusText(http.StatusOK)))
+
+}
+
+//SignInUser ...
+func (d Database) SignInUser(w http.ResponseWriter, r *http.Request) {
+	uuid := mux.Vars(r)["uuid"]
+	uuidInt, err := strconv.Atoi(uuid)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	if uuid == "" {
+		http.Error(w, http.StatusText(http.StatusBadRequest)+": missing parameter in url", http.StatusBadRequest)
+		return
+	}
+
+	row := d.db.QueryRow("select uuid, password from credentials where uuid=$1", uuidInt)
+
+	creds := Credentials{}
+
+	dbCreds := Credentials{}
+
+	err = row.Scan(&creds.UUID, &creds.Password)
+	switch {
+	case err == sql.ErrNoRows:
+		http.NotFound(w, r)
+		return
+	case err != nil:
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	log.Println("1",dbCreds.Password, "2",creds.Password)
+
+	if err = bcrypt.CompareHashAndPassword([]byte(dbCreds.Password), []byte(creds.Password)); err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(creds); err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+}
+
 //CreateBook ...
 func (d Database) CreateBook(w http.ResponseWriter, r *http.Request) {
 	var bk Book
-
 	if err := json.NewDecoder(r.Body).Decode(&bk); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError)+"Error unmarshalling json", http.StatusInternalServerError)
 		return
@@ -193,6 +269,7 @@ func (d Database) ReadBook(w http.ResponseWriter, r *http.Request) {
 
 //UpdateBook ...
 func (d Database) UpdateBook(w http.ResponseWriter, r *http.Request) {
+	log.Println("chu blyat")
 	id := mux.Vars(r)["id"]
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
