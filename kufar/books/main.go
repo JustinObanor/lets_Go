@@ -154,7 +154,7 @@ func (d Database) SignInUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	row := d.db.QueryRow("select username, password from credentials where username = $1 and uuid = $2", credReq.Username, credReq.UUID)
+	row := d.db.QueryRow("select password from credentials where username = $1 and uuid = $2", credReq.Username, credReq.UUID)
 
 	cred := Credentials{}
 	err := row.Scan(&cred.Username, &cred.Password)
