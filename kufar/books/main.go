@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/gorilla/sessions"
 	"golang.org/x/crypto/bcrypt"
 
 	_ "github.com/lib/pq"
@@ -32,7 +33,7 @@ func main() {
 	defer db.Close()
 
 	r.HandleFunc("/signup", SignUp(*db)).Methods("POST")
-	r.HandleFunc("/signin/{uuid}", SignIn(*db)).Methods("GET")
+	r.HandleFunc("/signin", SignIn(*db)).Methods("POST")
 	r.HandleFunc("/books", Create(*db)).Methods("POST")
 	r.HandleFunc("/books", ReadAll(*db)).Methods("GET")
 	r.HandleFunc("/books/{id}", Read(*db)).Methods("GET")
@@ -64,11 +65,17 @@ type BookResponse struct {
 	Date   string `json:"date"`
 }
 
+//CredentialsRequest ...
+type CredentialsRequest struct {
+	UUID     int    `json:"uuid"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
 //Credentials ...
 type Credentials struct {
-	UUID     int    
-	Username string 
-	Password string 
+	Username string
+	Password string
 }
 
 //Database ...
@@ -115,47 +122,42 @@ func (d Database) Close() error {
 
 //SignUpUser ...
 func (d Database) SignUpUser(w http.ResponseWriter, r *http.Request) {
-	cred := Credentials{}
-	if err := json.NewDecoder(r.Body).Decode(&cred); err != nil {
+	credReq := CredentialsRequest{}
+	if err := json.NewDecoder(r.Body).Decode(&credReq); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError)+"Error unmarshalling json", http.StatusInternalServerError)
 		return
 	}
 
-	pword, err := bcrypt.GenerateFromPassword([]byte(cred.Password), 8)
+	const cost = 12
+	pword, err := bcrypt.GenerateFromPassword([]byte(credReq.Password), cost)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
-	if _, err = d.db.Exec("insert into credentials(uuid, username, password) values($1, $2, $3)", cred.UUID, cred.Username, string(pword)); err != nil {
+	cred := Credentials{Username: credReq.Username}
+	if _, err = d.db.Exec("insert into credentials(username, password) values($1, $2)", cred.Username, string(pword)); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not log in user. Try different uuid", http.StatusInternalServerError)
 		return
 	}
-	w.Write([]byte(http.StatusText(http.StatusOK)))
 
+	w.Write([]byte(http.StatusText(http.StatusOK)))
 }
+
+var store = sessions.NewCookieStore([]byte(getenv("SESSION_KEY", "session_key")))
 
 //SignInUser ...
 func (d Database) SignInUser(w http.ResponseWriter, r *http.Request) {
-	uuid := mux.Vars(r)["uuid"]
-	uuidInt, err := strconv.Atoi(uuid)
-	if err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+	credReq := CredentialsRequest{}
+	if err := json.NewDecoder(r.Body).Decode(&credReq); err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+"Error unmarshalling json", http.StatusInternalServerError)
 		return
 	}
 
-	if uuid == "" {
-		http.Error(w, http.StatusText(http.StatusBadRequest)+": missing parameter in url", http.StatusBadRequest)
-		return
-	}
+	row := d.db.QueryRow("select username, password from credentials where username = $1 and uuid = $2", credReq.Username, credReq.UUID)
 
-	row := d.db.QueryRow("select uuid, password from credentials where uuid=$1", uuidInt)
-
-	creds := Credentials{}
-
-	dbCreds := Credentials{}
-
-	err = row.Scan(&creds.UUID, &creds.Password)
+	cred := Credentials{}
+	err := row.Scan(&cred.Username, &cred.Password)
 	switch {
 	case err == sql.ErrNoRows:
 		http.NotFound(w, r)
@@ -165,19 +167,19 @@ func (d Database) SignInUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Println("1",dbCreds.Password, "2",creds.Password)
-
-	if err = bcrypt.CompareHashAndPassword([]byte(dbCreds.Password), []byte(creds.Password)); err != nil {
+	if err = bcrypt.CompareHashAndPassword([]byte(cred.Password), []byte(credReq.Password)); err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
+	w.Write([]byte(http.StatusText(http.StatusOK)))
 
+	// session, err := store.Get(r, "session-name")
+	// if err != nil {
+	//     http.Error(w, err.Error(), http.StatusInternalServerError)
+	//     return
+	// }
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(creds); err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
+	// session
 }
 
 //CreateBook ...
@@ -190,8 +192,7 @@ func (d Database) CreateBook(w http.ResponseWriter, r *http.Request) {
 
 	now := time.Now().UTC()
 
-	_, err := d.db.Exec("insert into books(id, name, author, date) values($1, $2, $3, $4)", bk.ID, bk.Name, bk.Author, now)
-	if err != nil {
+	if _, err := d.db.Exec("insert into books(id, name, author, date) values($1, $2, $3, $4)", bk.ID, bk.Name, bk.Author, now); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not add new books. Try changing id", http.StatusInternalServerError)
 		return
 	}
@@ -211,9 +212,7 @@ func (d Database) ReadBooks(w http.ResponseWriter, r *http.Request) {
 	bks := []Book{}
 	for rows.Next() {
 		bk := Book{}
-		err := rows.Scan(&bk.ID, &bk.Name, &bk.Author, &bk.Date)
-
-		if err != nil {
+		if err := rows.Scan(&bk.ID, &bk.Name, &bk.Author, &bk.Date); err != nil {
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
@@ -269,7 +268,6 @@ func (d Database) ReadBook(w http.ResponseWriter, r *http.Request) {
 
 //UpdateBook ...
 func (d Database) UpdateBook(w http.ResponseWriter, r *http.Request) {
-	log.Println("chu blyat")
 	id := mux.Vars(r)["id"]
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
@@ -289,8 +287,7 @@ func (d Database) UpdateBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = d.db.Exec("update books set id = $1, name = $2, author = $3, date = $4 where id = $1", idInt, bk.Name, bk.Author, bk.Date)
-	if err != nil {
+	if _, err = d.db.Exec("update books set id = $1, name = $2, author = $3, date = $4 where id = $1", idInt, bk.Name, bk.Author, bk.Date); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -311,8 +308,7 @@ func (d Database) DeleteBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = d.db.Exec("delete from books where id = $1", idInt)
-	if err != nil {
+	if _, err = d.db.Exec("delete from books where id = $1", idInt); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
