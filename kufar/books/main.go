@@ -137,7 +137,7 @@ func (d Database) SignUpUser(w http.ResponseWriter, r *http.Request) {
 
 	cred := Credentials{Username: credReq.Username}
 	if _, err = d.db.Exec("insert into credentials(username, password) values($1, $2)", cred.Username, string(pword)); err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not log in user. Try different uuid", http.StatusInternalServerError)
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not log in user. Username already exists", http.StatusInternalServerError)
 		return
 	}
 
