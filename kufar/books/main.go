@@ -11,11 +11,12 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/gorilla/sessions"
 	"golang.org/x/crypto/bcrypt"
 
 	_ "github.com/lib/pq"
 )
+
+const cost = 12
 
 var host = getenv("PSQL_HOST", "db")
 var port = getenv("PSQL_PORT", "5432")
@@ -34,6 +35,7 @@ func main() {
 
 	r.HandleFunc("/signup", SignUp(*db)).Methods("POST")
 	r.HandleFunc("/signin", SignIn(*db)).Methods("POST")
+	r.HandleFunc("/logout", Logout(*db)).Methods("POST")
 	r.HandleFunc("/books", Create(*db)).Methods("POST")
 	r.HandleFunc("/books", ReadAll(*db)).Methods("GET")
 	r.HandleFunc("/books/{id}", Read(*db)).Methods("GET")
@@ -67,7 +69,6 @@ type BookResponse struct {
 
 //CredentialsRequest ...
 type CredentialsRequest struct {
-	UUID     int    `json:"uuid"`
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
@@ -128,7 +129,6 @@ func (d Database) SignUpUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	const cost = 12
 	pword, err := bcrypt.GenerateFromPassword([]byte(credReq.Password), cost)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -144,8 +144,6 @@ func (d Database) SignUpUser(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(http.StatusText(http.StatusOK)))
 }
 
-var store = sessions.NewCookieStore([]byte(getenv("SESSION_KEY", "session_key")))
-
 //SignInUser ...
 func (d Database) SignInUser(w http.ResponseWriter, r *http.Request) {
 	credReq := CredentialsRequest{}
@@ -154,10 +152,10 @@ func (d Database) SignInUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	row := d.db.QueryRow("select password from credentials where username = $1 and uuid = $2", credReq.Username, credReq.UUID)
+	row := d.db.QueryRow("select password from credentials where username = $1", credReq.Username)
 
 	cred := Credentials{}
-	err := row.Scan(&cred.Username, &cred.Password)
+	err := row.Scan(&cred.Password)
 	switch {
 	case err == sql.ErrNoRows:
 		http.NotFound(w, r)
@@ -167,19 +165,48 @@ func (d Database) SignInUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = bcrypt.CompareHashAndPassword([]byte(cred.Password), []byte(credReq.Password)); err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
+	session, err := store.Get(r, "my-cookie")
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
+
+	if err = bcrypt.CompareHashAndPassword([]byte(cred.Password), []byte(credReq.Password)); err != nil {
+		session.AddFlash("Incorrect credentials")
+		if err = session.Save(r, w); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		http.Redirect(w, r, "/signup", http.StatusSeeOther)
+		return
+	}
+
+	cred.Username = credReq.Username
+
+	session.Values["user"] = &cred
+	if err = session.Save(r, w); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	w.Write([]byte(http.StatusText(http.StatusOK)))
+}
 
-	// session, err := store.Get(r, "session-name")
-	// if err != nil {
-	//     http.Error(w, err.Error(), http.StatusInternalServerError)
-	//     return
-	// }
+//LogoutUser ...
+func (d Database) LogoutUser(w http.ResponseWriter, r *http.Request) {
+	session, err := store.Get(r, "my-cookie")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-	// session
+	session.Values["user"] = Credentials{}
+	session.Options.MaxAge = -1
+
+	if err = session.Save(r, w); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 //CreateBook ...

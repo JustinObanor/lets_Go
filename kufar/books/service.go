@@ -18,6 +18,13 @@ func SignIn(d Database) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+//Logout ...
+func Logout(d Database) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		d.LogoutUser(w, r)
+	}
+}
+
 //Create ...
 func Create(d Database) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
