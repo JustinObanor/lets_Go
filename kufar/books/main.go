@@ -57,7 +57,7 @@ type Book struct {
 	Name   string
 	Author string
 	Date   time.Time
-	UUID   int
+	UserID int
 }
 
 //BookResponse struct
@@ -66,7 +66,7 @@ type BookResponse struct {
 	Name   string `json:"name"`
 	Author string `json:"author"`
 	Date   string `json:"date"`
-	UUID   int    `json:"uuid"`
+	UserID int    `json:"userid"`
 }
 
 //CredentialsRequest ...
@@ -96,7 +96,7 @@ func convertToResponse(books Book) BookResponse {
 		Name:   books.Name,
 		Author: books.Author,
 		Date:   books.Date.In(location).Format(time.RFC1123),
-		UUID:   books.UUID,
+		UserID: books.UserID,
 	}
 }
 
@@ -170,6 +170,7 @@ func (d Database) SignInUser(w http.ResponseWriter, r *http.Request) {
 
 	session, err := store.Get(r, "my-cookie")
 	if err != nil {
+		log.Println("err: ", err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not get cookie", http.StatusInternalServerError)
 		return
 	}
@@ -184,9 +185,9 @@ func (d Database) SignInUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//cred.Username = credReq.Username
+	cred.Username = credReq.Username
 
-	session.Values["user"] = &cred.UUID
+	session.Values["user"] = cred.UUID
 	if err = session.Save(r, w); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not assign cookie", http.StatusInternalServerError)
 		return
@@ -202,8 +203,8 @@ func (d Database) LogoutUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not get cookie", http.StatusInternalServerError)
 		return
 	}
-
-	session.Values["user"] = Credentials{}
+	var cred Credentials
+	session.Values["user"] = cred.UUID
 	session.Options.MaxAge = -1
 
 	if err = session.Save(r, w); err != nil {
@@ -222,7 +223,7 @@ func (d Database) CreateBook(w http.ResponseWriter, r *http.Request) {
 
 	now := time.Now().UTC()
 
-	if _, err := d.db.Exec("insert into books(id, name, author, date, uuid) values($1, $2, $3, $4, $5)", bk.ID, bk.Name, bk.Author, now, bk.UUID); err != nil {
+	if _, err := d.db.Exec("insert into books(id, name, author, date, userid) values($1, $2, $3, $4, $5)", bk.ID, bk.Name, bk.Author, now, bk.UserID); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not add new books. Try changing id", http.StatusInternalServerError)
 		return
 	}
@@ -241,7 +242,7 @@ func (d Database) ReadBooks(w http.ResponseWriter, r *http.Request) {
 	bks := []Book{}
 	for rows.Next() {
 		bk := Book{}
-		if err := rows.Scan(&bk.ID, &bk.Name, &bk.Author, &bk.Date, &bk.UUID); err != nil {
+		if err := rows.Scan(&bk.ID, &bk.Name, &bk.Author, &bk.Date, &bk.UserID); err != nil {
 			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not scan db", http.StatusInternalServerError)
 			return
 		}
@@ -277,7 +278,7 @@ func (d Database) ReadBook(w http.ResponseWriter, r *http.Request) {
 	row := d.db.QueryRow("select * from books where id = $1", idInt)
 
 	bk := Book{}
-	err = row.Scan(&bk.ID, &bk.Name, &bk.Author, &bk.Date, &bk.UUID)
+	err = row.Scan(&bk.ID, &bk.Name, &bk.Author, &bk.Date, &bk.UserID)
 	switch {
 	case err == sql.ErrNoRows:
 		http.NotFound(w, r)
@@ -316,7 +317,7 @@ func (d Database) UpdateBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err = d.db.Exec("update books set id = $1, name = $2, author = $3, date = $4, uuid = $5 where id = $1", idInt, bk.Name, bk.Author, bk.Date, bk.UUID); err != nil {
+	if _, err = d.db.Exec("update books set id = $1, name = $2, author = $3, date = $4, userid = $5 where id = $1", idInt, bk.Name, bk.Author, bk.Date, bk.UserID); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
