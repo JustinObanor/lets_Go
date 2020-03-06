@@ -1,8 +1,6 @@
 package main
 
 import (
-	"encoding/gob"
-
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
 )
@@ -22,6 +20,4 @@ func init() {
 		MaxAge:   60 * 15,
 		HttpOnly: true,
 	}
-
-	gob.Register(Credentials{})
 }

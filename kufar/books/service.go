@@ -46,15 +46,15 @@ func ReadAll(d Database) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-var secrets map[Credentials]BookResponse
-
 //Update ...
 func Update(d Database) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// r.SetBasicAuth(cred.User, cred.Password)
+		// var cred Credentials
+		// var credReq CredentialsRequest
+		// r.SetBasicAuth(cred.Username, cred.Password)
 
 		// realm := "Access to the user books"
-		// if _, ok := secrets[cred]; !ok {
+		// if  {
 		// 	w.Header().Set("WWW-Authenticate", `Basic realm="`+realm+`," charset="UTF-8"`)
 		// 	w.WriteHeader(http.StatusUnauthorized)
 		// 	w.Write([]byte(http.StatusText(http.StatusUnauthorized) + ": check credentials"))

@@ -9,6 +9,8 @@ services:
     restart: on-failure
     depends_on: 
       - postgres
+    # environment: 
+    #   - SESSION_KEY=$SESSION_KEY 
 
   postgres:
     image: postgres
