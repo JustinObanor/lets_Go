@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
 )
@@ -20,4 +22,6 @@ func init() {
 		MaxAge:   60 * 5,
 		HttpOnly: true,
 	}
+	os.Setenv("SESSION_AUTH_KEY", string(authKeyOne))
+	os.Setenv("SESSION_ENCRYPT_KEY", string(encryptionKeyOne))
 }

@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gorilla/mux"
+	"github.com/go-chi/chi"
 	"golang.org/x/crypto/bcrypt"
 
 	_ "github.com/lib/pq"
@@ -25,7 +25,7 @@ var password = getenv("PSQL_PWDcas", "postgres")
 var dbname = getenv("PSQL_DB_NAME", "books")
 
 func main() {
-	r := mux.NewRouter()
+	r := chi.NewRouter()
 	db, err := New()
 	if err != nil {
 		log.Fatalf("error connecting to db: %v", err)
@@ -33,14 +33,21 @@ func main() {
 
 	defer db.Close()
 
-	r.HandleFunc("/signup", SignUp(*db)).Methods("POST")
-	r.HandleFunc("/signin", SignIn(*db)).Methods("POST")
-	r.HandleFunc("/logout", Logout(*db)).Methods("POST")
-	r.HandleFunc("/books", Create(*db)).Methods("POST")
-	r.HandleFunc("/books", ReadAll(*db)).Methods("GET")
-	r.HandleFunc("/books/{id}", Read(*db)).Methods("GET")
-	r.HandleFunc("/books/{id}", Update(*db)).Methods("PUT")
-	r.HandleFunc("/books/{id}", Delete(*db)).Methods("DELETE")
+	r.Post("/signup", SignUp(*db))
+	r.Post("/signin", SignIn(*db))
+	r.Post("/logout", Logout(*db))
+
+	r.Route("/books", func(r chi.Router) {
+		r.Post("/", Create(*db))
+		r.Get("/", ReadAll(*db))
+
+		r.Route("/{id}", func(r chi.Router) {
+			r.Get("/", Read(*db))
+			r.Put("/", Update(*db))
+			r.Delete("/", Delete(*db))
+		})
+	})
+
 	log.Fatal(http.ListenAndServe(":8080", r))
 }
 
@@ -88,6 +95,21 @@ type Database struct {
 }
 
 var location, _ = time.LoadLocation("Europe/Minsk")
+
+// returns true is the session is new and vice-versa
+func checkSession(w http.ResponseWriter, r *http.Request) bool {
+	session, err := store.Get(r, "my-cookie")
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not get cookie", http.StatusInternalServerError)
+		return true
+	}
+	if session.IsNew {
+		http.Error(w, http.StatusText(http.StatusUnauthorized)+": unathorized access", http.StatusUnauthorized)
+		http.Redirect(w, r, "/signin", http.StatusSeeOther)
+		return true
+	}
+	return false
+}
 
 func convertToResponse(books Book) BookResponse {
 
@@ -151,7 +173,7 @@ func (d Database) SignUpUser(w http.ResponseWriter, r *http.Request) {
 func (d Database) SignInUser(w http.ResponseWriter, r *http.Request) {
 	credReq := CredentialsRequest{}
 	if err := json.NewDecoder(r.Body).Decode(&credReq); err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError)+"Error unmarshalling json", http.StatusInternalServerError)
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": error unmarshalling json", http.StatusInternalServerError)
 		return
 	}
 
@@ -170,7 +192,6 @@ func (d Database) SignInUser(w http.ResponseWriter, r *http.Request) {
 
 	session, err := store.Get(r, "my-cookie")
 	if err != nil {
-		log.Println("err: ", err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not get cookie", http.StatusInternalServerError)
 		return
 	}
@@ -203,6 +224,7 @@ func (d Database) LogoutUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not get cookie", http.StatusInternalServerError)
 		return
 	}
+
 	var cred Credentials
 	session.Values["user"] = cred.UUID
 	session.Options.MaxAge = -1
@@ -215,6 +237,10 @@ func (d Database) LogoutUser(w http.ResponseWriter, r *http.Request) {
 
 //CreateBook ...
 func (d Database) CreateBook(w http.ResponseWriter, r *http.Request) {
+	if checkSession(w, r) {
+		return
+	}
+
 	var bk Book
 	if err := json.NewDecoder(r.Body).Decode(&bk); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError)+": Error unmarshalling json", http.StatusInternalServerError)
@@ -263,7 +289,7 @@ func (d Database) ReadBooks(w http.ResponseWriter, r *http.Request) {
 
 //ReadBook ...
 func (d Database) ReadBook(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
+	id := chi.URLParam(r, "id")
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not convert to integer", http.StatusInternalServerError)
@@ -298,7 +324,11 @@ func (d Database) ReadBook(w http.ResponseWriter, r *http.Request) {
 
 //UpdateBook ...
 func (d Database) UpdateBook(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
+	if checkSession(w, r) {
+		return
+	}
+
+	id := chi.URLParam(r, "id")
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not convert to integer", http.StatusInternalServerError)
@@ -326,7 +356,11 @@ func (d Database) UpdateBook(w http.ResponseWriter, r *http.Request) {
 
 //DeleteBook ...
 func (d Database) DeleteBook(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
+	if checkSession(w, r) {
+		return
+	}
+
+	id := chi.URLParam(r, "id")
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not convert to integer", http.StatusInternalServerError)
