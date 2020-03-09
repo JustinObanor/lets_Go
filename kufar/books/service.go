@@ -49,20 +49,6 @@ func ReadAll(d Database) func(w http.ResponseWriter, r *http.Request) {
 //Update ...
 func Update(d Database) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// var cred Credentials
-		// var credReq CredentialsRequest
-		// r.SetBasicAuth(cred.Username, cred.Password)
-
-		// realm := "Access to the user books"
-		// if  {
-		// 	w.Header().Set("WWW-Authenticate", `Basic realm="`+realm+`," charset="UTF-8"`)
-		// 	w.WriteHeader(http.StatusUnauthorized)
-		// 	w.Write([]byte(http.StatusText(http.StatusUnauthorized) + ": check credentials"))
-		// 	return
-		// }
-
-		// cred.User, cred.Password, _ = r.BasicAuth()
-
 		d.UpdateBook(w, r)
 	}
 }

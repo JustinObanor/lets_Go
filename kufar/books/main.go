@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi"
+	"github.com/gorilla/sessions"
 	"golang.org/x/crypto/bcrypt"
 
 	_ "github.com/lib/pq"
@@ -24,39 +25,9 @@ var user = getenv("PSQL_USER", "postgres")
 var password = getenv("PSQL_PWDcas", "postgres")
 var dbname = getenv("PSQL_DB_NAME", "books")
 
-func main() {
-	r := chi.NewRouter()
-	db, err := New()
-	if err != nil {
-		log.Fatalf("error connecting to db: %v", err)
-	}
+var location, _ = time.LoadLocation("Europe/Minsk")
 
-	defer db.Close()
-
-	r.Post("/signup", SignUp(*db))
-	r.Post("/signin", SignIn(*db))
-	r.Post("/logout", Logout(*db))
-
-	r.Route("/books", func(r chi.Router) {
-		r.Post("/", Create(*db))
-		r.Get("/", ReadAll(*db))
-
-		r.Route("/{id}", func(r chi.Router) {
-			r.Get("/", Read(*db))
-			r.Put("/", Update(*db))
-			r.Delete("/", Delete(*db))
-		})
-	})
-
-	log.Fatal(http.ListenAndServe(":8080", r))
-}
-
-func getenv(key, fallback string) string {
-	if value, ok := os.LookupEnv(key); ok {
-		return value
-	}
-	return fallback
-}
+var store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
 
 //Book ...
 type Book struct {
@@ -94,21 +65,44 @@ type Database struct {
 	db *sql.DB
 }
 
-var location, _ = time.LoadLocation("Europe/Minsk")
+func main() {
+	r := chi.NewRouter()
+	db, err := New()
+	if err != nil {
+		log.Fatalf("error connecting to db: %v", err)
+	}
+
+	defer db.Close()
+
+	r.Post("/signup", SignUp(*db))
+	r.Post("/signin", SignIn(*db))
+	r.Post("/logout", Logout(*db))
+
+	r.Route("/books", func(r chi.Router) {
+		r.Post("/", Create(*db))
+		r.Get("/", ReadAll(*db))
+
+		r.Route("/{id}", func(r chi.Router) {
+			r.Get("/", Read(*db))
+			r.Put("/", Update(*db))
+			r.Delete("/", Delete(*db))
+		})
+	})
+
+	log.Fatal(http.ListenAndServe(":8080", r))
+}
+
+func getenv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
+}
 
 // returns true is the session is new and vice-versa
-func checkSession(w http.ResponseWriter, r *http.Request) bool {
+func checkSession(w http.ResponseWriter, r *http.Request) (id interface{}, valid bool) {
 	session, err := store.Get(r, "my-cookie")
-	if err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not get cookie", http.StatusInternalServerError)
-		return true
-	}
-	if session.IsNew {
-		http.Error(w, http.StatusText(http.StatusUnauthorized)+": unathorized access", http.StatusUnauthorized)
-		http.Redirect(w, r, "/signin", http.StatusSeeOther)
-		return true
-	}
-	return false
+	return session.Values["user"], err != nil || session.IsNew
 }
 
 func convertToResponse(books Book) BookResponse {
@@ -177,10 +171,10 @@ func (d Database) SignInUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	row := d.db.QueryRow("select password from credentials where username = $1", credReq.Username)
+	row := d.db.QueryRow("select uuid, password from credentials where username = $1", credReq.Username)
 
 	cred := Credentials{}
-	err := row.Scan(&cred.Password)
+	err := row.Scan(&cred.UUID, &cred.Password)
 	switch {
 	case err == sql.ErrNoRows:
 		http.NotFound(w, r)
@@ -237,7 +231,9 @@ func (d Database) LogoutUser(w http.ResponseWriter, r *http.Request) {
 
 //CreateBook ...
 func (d Database) CreateBook(w http.ResponseWriter, r *http.Request) {
-	if checkSession(w, r) {
+	_, valid := checkSession(w, r)
+	if valid {
+		http.Error(w, http.StatusText(http.StatusUnauthorized)+": unauthorized access", http.StatusUnauthorized)
 		return
 	}
 
@@ -324,7 +320,9 @@ func (d Database) ReadBook(w http.ResponseWriter, r *http.Request) {
 
 //UpdateBook ...
 func (d Database) UpdateBook(w http.ResponseWriter, r *http.Request) {
-	if checkSession(w, r) {
+	userID, valid := checkSession(w, r)
+	if valid {
+		http.Error(w, http.StatusText(http.StatusUnauthorized)+": you will need to login first", http.StatusUnauthorized)
 		return
 	}
 
@@ -340,23 +338,34 @@ func (d Database) UpdateBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bk := Book{}
-
+	var bk Book
 	if err := json.NewDecoder(r.Body).Decode(&bk); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError)+": Error unmarshalling json", http.StatusInternalServerError)
 		return
 	}
+	
+	realm := "Access to the users private books"
+	if userID.(int) != bk.UserID {
+		w.Header().Set("WWW-Authenticate", `Basic realm="`+realm+`," charset="UTF-8"`)
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(http.StatusText(http.StatusUnauthorized) + ": you dont have access to this resource"))
+		return
+	}
+	// w.Header().Set("Authorization", `Basic "`+uname+`":"`+pword+`"`)
 
 	if _, err = d.db.Exec("update books set id = $1, name = $2, author = $3, date = $4, userid = $5 where id = $1", idInt, bk.Name, bk.Author, bk.Date, bk.UserID); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
+
 	w.Write([]byte(http.StatusText(http.StatusOK)))
 }
 
 //DeleteBook ...
 func (d Database) DeleteBook(w http.ResponseWriter, r *http.Request) {
-	if checkSession(w, r) {
+	userID, valid := checkSession(w, r)
+	if valid {
+		http.Error(w, http.StatusText(http.StatusUnauthorized)+": unauthorized access", http.StatusUnauthorized)
 		return
 	}
 
@@ -371,6 +380,21 @@ func (d Database) DeleteBook(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusBadRequest)+": missing parameter in url", http.StatusBadRequest)
 		return
 	}
+
+	var bk Book
+	if err := json.NewDecoder(r.Body).Decode(&bk); err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": Error unmarshalling json", http.StatusInternalServerError)
+		return
+	}
+
+	realm := "Access to the users private books"
+	if userID.(int) != bk.UserID {
+		w.Header().Set("WWW-Authenticate", `Basic realm="`+realm+`," charset="UTF-8"`)
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(http.StatusText(http.StatusUnauthorized) + ": you dont have access to this resource"))
+		return
+	}
+	// w.Header().Set("Authorization", `Basic "`+uname+`":"`+pword+`"`)
 
 	if _, err = d.db.Exec("delete from books where id = $1", idInt); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not delete book", http.StatusInternalServerError)
