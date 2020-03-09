@@ -10,10 +10,14 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gorilla/mux"
+	"github.com/go-chi/chi"
+	"github.com/gorilla/sessions"
+	"golang.org/x/crypto/bcrypt"
 
 	_ "github.com/lib/pq"
 )
+
+const cost = 12
 
 var host = getenv("PSQL_HOST", "db")
 var port = getenv("PSQL_PORT", "5432")
@@ -21,20 +25,70 @@ var user = getenv("PSQL_USER", "postgres")
 var password = getenv("PSQL_PWDcas", "postgres")
 var dbname = getenv("PSQL_DB_NAME", "books")
 
+var location, _ = time.LoadLocation("Europe/Minsk")
+
+var store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
+
+//Book ...
+type Book struct {
+	ID     int
+	Name   string
+	Author string
+	Date   time.Time
+	UserID int
+}
+
+//BookResponse struct
+type BookResponse struct {
+	ID     int    `json:"id"`
+	Name   string `json:"name"`
+	Author string `json:"author"`
+	Date   string `json:"date"`
+	UserID int    `json:"userid"`
+}
+
+//CredentialsRequest ...
+type CredentialsRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+//Credentials ...
+type Credentials struct {
+	UUID     int
+	Username string
+	Password string
+}
+
+//Database ...
+type Database struct {
+	db *sql.DB
+}
+
 func main() {
-	r := mux.NewRouter()
+	r := chi.NewRouter()
 	db, err := New()
 	if err != nil {
-		log.Fatal("error connecting to db")
+		log.Fatalf("error connecting to db: %v", err)
 	}
 
 	defer db.Close()
 
-	r.HandleFunc("/books", Create(*db)).Methods("POST")
-	r.HandleFunc("/books", ReadAll(*db)).Methods("GET")
-	r.HandleFunc("/books/{id}", Read(*db)).Methods("GET")
-	r.HandleFunc("/books/{id}", Update(*db)).Methods("PUT")
-	r.HandleFunc("/books/{id}", Delete(*db)).Methods("DELETE")
+	r.Post("/signup", SignUp(*db))
+	r.Post("/signin", SignIn(*db))
+	r.Post("/logout", Logout(*db))
+
+	r.Route("/books", func(r chi.Router) {
+		r.Post("/", Create(*db))
+		r.Get("/", ReadAll(*db))
+
+		r.Route("/{id}", func(r chi.Router) {
+			r.Get("/", Read(*db))
+			r.Put("/", Update(*db))
+			r.Delete("/", Delete(*db))
+		})
+	})
+
 	log.Fatal(http.ListenAndServe(":8080", r))
 }
 
@@ -45,28 +99,17 @@ func getenv(key, fallback string) string {
 	return fallback
 }
 
-//Book ...
-type Book struct {
-	ID     int
-	Name   string
-	Author string
-	Date   time.Time
+// returns true is the session is new and vice-versa
+func checkSession(w http.ResponseWriter, r *http.Request) (id int, err error) {
+	session, err := store.Get(r, "my-cookie")
+	if err != nil || session.IsNew {
+		return 0, err
+	}
+	if userID, ok := session.Values["user"]; ok {
+		return userID.(int), nil
+	}
+	return 0, err
 }
-
-//BookResponse struct
-type BookResponse struct {
-	ID     int    `json:"id"`
-	Name   string `json:"name"`
-	Author string `json:"author"`
-	Date   string `json:"date"`
-}
-
-//Database ...
-type Database struct {
-	db *sql.DB
-}
-
-var location, _ = time.LoadLocation("Europe/Minsk")
 
 func convertToResponse(books Book) BookResponse {
 
@@ -75,6 +118,7 @@ func convertToResponse(books Book) BookResponse {
 		Name:   books.Name,
 		Author: books.Author,
 		Date:   books.Date.In(location).Format(time.RFC1123),
+		UserID: books.UserID,
 	}
 }
 
@@ -95,7 +139,6 @@ func New() (*Database, error) {
 	return &Database{
 		db: db,
 	}, nil
-
 }
 
 //Close closes the conn
@@ -103,19 +146,112 @@ func (d Database) Close() error {
 	return d.db.Close()
 }
 
+//SignUpUser ...
+func (d Database) SignUpUser(w http.ResponseWriter, r *http.Request) {
+	credReq := CredentialsRequest{}
+	if err := json.NewDecoder(r.Body).Decode(&credReq); err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": error unmarshalling json", http.StatusInternalServerError)
+		return
+	}
+
+	pword, err := bcrypt.GenerateFromPassword([]byte(credReq.Password), cost)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not add password", http.StatusInternalServerError)
+		return
+	}
+
+	cred := Credentials{Username: credReq.Username}
+	if _, err = d.db.Exec("insert into credentials(username, password) values($1, $2)", cred.Username, string(pword)); err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not log in user. Username already exists", http.StatusInternalServerError)
+		return
+	}
+
+	w.Write([]byte(http.StatusText(http.StatusOK)))
+}
+
+//SignInUser ...
+func (d Database) SignInUser(w http.ResponseWriter, r *http.Request) {
+	credReq := CredentialsRequest{}
+	if err := json.NewDecoder(r.Body).Decode(&credReq); err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": error unmarshalling json", http.StatusInternalServerError)
+		return
+	}
+
+	row := d.db.QueryRow("select uuid, password from credentials where username = $1", credReq.Username)
+
+	cred := Credentials{}
+	err := row.Scan(&cred.UUID, &cred.Password)
+	switch {
+	case err == sql.ErrNoRows:
+		http.NotFound(w, r)
+		return
+	case err != nil:
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not scan db", http.StatusInternalServerError)
+		return
+	}
+
+	session, err := store.Get(r, "my-cookie")
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not get cookie", http.StatusInternalServerError)
+		return
+	}
+
+	if err = bcrypt.CompareHashAndPassword([]byte(cred.Password), []byte(credReq.Password)); err != nil {
+		session.AddFlash("Incorrect credentials")
+		if err = session.Save(r, w); err != nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not check password", http.StatusInternalServerError)
+			return
+		}
+		http.Redirect(w, r, "/signup", http.StatusSeeOther)
+		return
+	}
+
+	cred.Username = credReq.Username
+
+	session.Values["user"] = cred.UUID
+	if err = session.Save(r, w); err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not assign cookie", http.StatusInternalServerError)
+		return
+	}
+
+	w.Write([]byte(http.StatusText(http.StatusOK)))
+}
+
+//LogoutUser ...
+func (d Database) LogoutUser(w http.ResponseWriter, r *http.Request) {
+	session, err := store.Get(r, "my-cookie")
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not get cookie", http.StatusInternalServerError)
+		return
+	}
+
+	var cred Credentials
+	session.Values["user"] = cred.UUID
+	session.Options.MaxAge = -1
+
+	if err = session.Save(r, w); err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not save cookie", http.StatusInternalServerError)
+		return
+	}
+}
+
 //CreateBook ...
 func (d Database) CreateBook(w http.ResponseWriter, r *http.Request) {
-	var bk Book
+	_, err := checkSession(w, r)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusUnauthorized)+": unauthorized access", http.StatusUnauthorized)
+		return
+	}
 
+	var bk Book
 	if err := json.NewDecoder(r.Body).Decode(&bk); err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError)+"Error unmarshalling json", http.StatusInternalServerError)
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": Error unmarshalling json", http.StatusInternalServerError)
 		return
 	}
 
 	now := time.Now().UTC()
 
-	_, err := d.db.Exec("insert into books(id, name, author, date) values($1, $2, $3, $4)", bk.ID, bk.Name, bk.Author, now)
-	if err != nil {
+	if _, err := d.db.Exec("insert into books(id, name, author, date, userid) values($1, $2, $3, $4, $5)", bk.ID, bk.Name, bk.Author, now, bk.UserID); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not add new books. Try changing id", http.StatusInternalServerError)
 		return
 	}
@@ -125,7 +261,6 @@ func (d Database) CreateBook(w http.ResponseWriter, r *http.Request) {
 //ReadBooks ...
 func (d Database) ReadBooks(w http.ResponseWriter, r *http.Request) {
 	rows, err := d.db.Query("select * from books order by id asc")
-
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not list books", http.StatusInternalServerError)
 		return
@@ -135,10 +270,8 @@ func (d Database) ReadBooks(w http.ResponseWriter, r *http.Request) {
 	bks := []Book{}
 	for rows.Next() {
 		bk := Book{}
-		err := rows.Scan(&bk.ID, &bk.Name, &bk.Author, &bk.Date)
-
-		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		if err := rows.Scan(&bk.ID, &bk.Name, &bk.Author, &bk.Date, &bk.UserID); err != nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not scan db", http.StatusInternalServerError)
 			return
 		}
 		bks = append(bks, bk)
@@ -151,17 +284,17 @@ func (d Database) ReadBooks(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(resps); err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": error marshelling json", http.StatusInternalServerError)
 		return
 	}
 }
 
 //ReadBook ...
 func (d Database) ReadBook(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
+	id := chi.URLParam(r, "id")
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not convert to integer", http.StatusInternalServerError)
 		return
 	}
 
@@ -173,30 +306,37 @@ func (d Database) ReadBook(w http.ResponseWriter, r *http.Request) {
 	row := d.db.QueryRow("select * from books where id = $1", idInt)
 
 	bk := Book{}
-	err = row.Scan(&bk.ID, &bk.Name, &bk.Author, &bk.Date)
+	err = row.Scan(&bk.ID, &bk.Name, &bk.Author, &bk.Date, &bk.UserID)
 	switch {
 	case err == sql.ErrNoRows:
 		http.NotFound(w, r)
 		return
 	case err != nil:
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": error scanning db", http.StatusInternalServerError)
 		return
 	}
 
 	resp := convertToResponse(bk)
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": Error marshalling json", http.StatusInternalServerError)
 		return
 	}
 }
 
 //UpdateBook ...
 func (d Database) UpdateBook(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
+	userID, err := checkSession(w, r)
+	if err != nil {
+		log.Println("err", err)
+		http.Error(w, http.StatusText(http.StatusUnauthorized)+": you will need to login first", http.StatusUnauthorized)
+		return
+	}
+
+	id := chi.URLParam(r, "id")
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not convert to integer", http.StatusInternalServerError)
 		return
 	}
 
@@ -205,27 +345,41 @@ func (d Database) UpdateBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bk := Book{}
-
+	var bk Book
 	if err := json.NewDecoder(r.Body).Decode(&bk); err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": Error unmarshalling json", http.StatusInternalServerError)
+		return
+	}
+
+	//realm := "Access to the users private books"
+	if userID != bk.UserID {
+		//	w.Header().Set("WWW-Authenticate", `Basic realm="`+realm+`," charset="UTF-8"`)
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(http.StatusText(http.StatusUnauthorized) + ": you dont have access to this resource"))
+		return
+	}
+	// w.Header().Set("Authorization", `Basic "`+uname+`":"`+pword+`"`)
+
+	if _, err = d.db.Exec("update books set id = $1, name = $2, author = $3, date = $4, userid = $5 where id = $1", idInt, bk.Name, bk.Author, bk.Date, bk.UserID); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
-	_, err = d.db.Exec("update books set id = $1, name = $2, author = $3, date = $4 where id = $1", idInt, bk.Name, bk.Author, bk.Date)
-	if err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
 	w.Write([]byte(http.StatusText(http.StatusOK)))
 }
 
 //DeleteBook ...
 func (d Database) DeleteBook(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
+	userID, err := checkSession(w, r)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusUnauthorized)+": unauthorized access", http.StatusUnauthorized)
+		return
+	}
+
+	id := chi.URLParam(r, "id")
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not convert to integer", http.StatusInternalServerError)
 		return
 	}
 
@@ -234,9 +388,23 @@ func (d Database) DeleteBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = d.db.Exec("delete from books where id = $1", idInt)
-	if err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+	var bk Book
+	if err := json.NewDecoder(r.Body).Decode(&bk); err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": Error unmarshalling json", http.StatusInternalServerError)
+		return
+	}
+
+	//realm := "Access to the users private books"
+	if userID != bk.UserID {
+		//	w.Header().Set("WWW-Authenticate", `Basic realm="`+realm+`," charset="UTF-8"`)
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(http.StatusText(http.StatusUnauthorized) + ": you dont have access to this resource"))
+		return
+	}
+	// w.Header().Set("Authorization", `Basic "`+uname+`":"`+pword+`"`)
+
+	if _, err = d.db.Exec("delete from books where id = $1", idInt); err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not delete book", http.StatusInternalServerError)
 		return
 	}
 	w.Write([]byte(http.StatusText(http.StatusOK)))

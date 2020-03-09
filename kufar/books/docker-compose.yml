@@ -2,14 +2,15 @@ version: '3'
 
 services: 
   app:  
-    image: go_docker
+    build: .
     container_name: go
     ports: 
       - '8080:8080'
-    build: .
     restart: on-failure
     depends_on: 
       - postgres
+    environment: 
+      - SESSION_KEY
 
   postgres:
     image: postgres
