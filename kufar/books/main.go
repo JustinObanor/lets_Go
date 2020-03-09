@@ -100,14 +100,15 @@ func getenv(key, fallback string) string {
 }
 
 // returns true is the session is new and vice-versa
-func checkSession(w http.ResponseWriter, r *http.Request) (id interface{}, valid bool) {
+func checkSession(w http.ResponseWriter, r *http.Request) (id int, err error) {
 	session, err := store.Get(r, "my-cookie")
 	if err != nil || session.IsNew {
-		return nil, true
-	} else if userID, ok := session.Values["user"]; ok {
-		return userID, false
+		return 0, err
 	}
-	return nil, true
+	if userID, ok := session.Values["user"]; ok {
+		return userID.(int), nil
+	}
+	return 0, err
 }
 
 func convertToResponse(books Book) BookResponse {
@@ -236,8 +237,8 @@ func (d Database) LogoutUser(w http.ResponseWriter, r *http.Request) {
 
 //CreateBook ...
 func (d Database) CreateBook(w http.ResponseWriter, r *http.Request) {
-	_, valid := checkSession(w, r)
-	if valid {
+	_, err := checkSession(w, r)
+	if err != nil {
 		http.Error(w, http.StatusText(http.StatusUnauthorized)+": unauthorized access", http.StatusUnauthorized)
 		return
 	}
@@ -325,8 +326,9 @@ func (d Database) ReadBook(w http.ResponseWriter, r *http.Request) {
 
 //UpdateBook ...
 func (d Database) UpdateBook(w http.ResponseWriter, r *http.Request) {
-	userID, valid := checkSession(w, r)
-	if valid {
+	userID, err := checkSession(w, r)
+	if err != nil {
+		log.Println("err", err)
 		http.Error(w, http.StatusText(http.StatusUnauthorized)+": you will need to login first", http.StatusUnauthorized)
 		return
 	}
@@ -350,7 +352,7 @@ func (d Database) UpdateBook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//realm := "Access to the users private books"
-	if userID.(int) != bk.UserID {
+	if userID != bk.UserID {
 		//	w.Header().Set("WWW-Authenticate", `Basic realm="`+realm+`," charset="UTF-8"`)
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte(http.StatusText(http.StatusUnauthorized) + ": you dont have access to this resource"))
@@ -368,8 +370,8 @@ func (d Database) UpdateBook(w http.ResponseWriter, r *http.Request) {
 
 //DeleteBook ...
 func (d Database) DeleteBook(w http.ResponseWriter, r *http.Request) {
-	userID, valid := checkSession(w, r)
-	if valid {
+	userID, err := checkSession(w, r)
+	if err != nil {
 		http.Error(w, http.StatusText(http.StatusUnauthorized)+": unauthorized access", http.StatusUnauthorized)
 		return
 	}
@@ -393,7 +395,7 @@ func (d Database) DeleteBook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//realm := "Access to the users private books"
-	if userID.(int) != bk.UserID {
+	if userID != bk.UserID {
 		//	w.Header().Set("WWW-Authenticate", `Basic realm="`+realm+`," charset="UTF-8"`)
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte(http.StatusText(http.StatusUnauthorized) + ": you dont have access to this resource"))
