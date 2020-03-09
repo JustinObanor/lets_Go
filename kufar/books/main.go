@@ -102,7 +102,12 @@ func getenv(key, fallback string) string {
 // returns true is the session is new and vice-versa
 func checkSession(w http.ResponseWriter, r *http.Request) (id interface{}, valid bool) {
 	session, err := store.Get(r, "my-cookie")
-	return session.Values["user"], err != nil || session.IsNew
+	if err != nil || session.IsNew {
+		return nil, true
+	} else if userID, ok := session.Values["user"]; ok {
+		return userID, false
+	}
+	return nil, true
 }
 
 func convertToResponse(books Book) BookResponse {
@@ -343,10 +348,10 @@ func (d Database) UpdateBook(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusInternalServerError)+": Error unmarshalling json", http.StatusInternalServerError)
 		return
 	}
-	
-	realm := "Access to the users private books"
+
+	//realm := "Access to the users private books"
 	if userID.(int) != bk.UserID {
-		w.Header().Set("WWW-Authenticate", `Basic realm="`+realm+`," charset="UTF-8"`)
+		//	w.Header().Set("WWW-Authenticate", `Basic realm="`+realm+`," charset="UTF-8"`)
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte(http.StatusText(http.StatusUnauthorized) + ": you dont have access to this resource"))
 		return
@@ -387,9 +392,9 @@ func (d Database) DeleteBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	realm := "Access to the users private books"
+	//realm := "Access to the users private books"
 	if userID.(int) != bk.UserID {
-		w.Header().Set("WWW-Authenticate", `Basic realm="`+realm+`," charset="UTF-8"`)
+		//	w.Header().Set("WWW-Authenticate", `Basic realm="`+realm+`," charset="UTF-8"`)
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte(http.StatusText(http.StatusUnauthorized) + ": you dont have access to this resource"))
 		return
