@@ -215,7 +215,6 @@ func (d Database) SignInUser(w http.ResponseWriter, r *http.Request) {
 	case credentials != "":
 		r.SetBasicAuth(cred.Username, cred.Password)
 		auth := strings.SplitN(r.Header.Get("Authorization"), " ", 2)
-		fmt.Println(auth)
 		if len(auth) != 2 || auth[0] != "Basic" {
 			http.Error(w, http.StatusText(http.StatusUnauthorized)+" authorization failed! ", http.StatusUnauthorized)
 			return

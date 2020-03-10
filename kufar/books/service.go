@@ -57,7 +57,7 @@ func Update(d Database) func(w http.ResponseWriter, r *http.Request) {
 		//username and password not gotten :(
 		uname, pword, ok := r.BasicAuth()
 
-		//cant the the gredentials :(
+		//cant get the gredentials :(
 		b64 := r.Header.Get("Authorization")
 
 		s := strings.Split(b64, " ")
