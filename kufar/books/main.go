@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi"
@@ -99,7 +100,7 @@ func getenv(key, fallback string) string {
 	return fallback
 }
 
-// returns true is the session is new and vice-versa
+// returns true if the session is new and vice-versa
 func checkSession(w http.ResponseWriter, r *http.Request) (id int, err error) {
 	session, err := store.Get(r, "my-cookie")
 	if err != nil || session.IsNew {
@@ -208,10 +209,23 @@ func (d Database) SignInUser(w http.ResponseWriter, r *http.Request) {
 
 	cred.Username = credReq.Username
 
-	session.Values["user"] = cred.UUID
-	if err = session.Save(r, w); err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not assign cookie", http.StatusInternalServerError)
-		return
+	credentials := r.Header.Get("Authorization")
+
+	switch {
+	case credentials != "":
+		r.SetBasicAuth(cred.Username, cred.Password)
+		auth := strings.SplitN(r.Header.Get("Authorization"), " ", 2)
+		fmt.Println(auth)
+		if len(auth) != 2 || auth[0] != "Basic" {
+			http.Error(w, http.StatusText(http.StatusUnauthorized)+" authorization failed! ", http.StatusUnauthorized)
+			return
+		}
+	default:
+		session.Values["user"] = cred.UUID
+		if err = session.Save(r, w); err != nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not assign cookie", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	w.Write([]byte(http.StatusText(http.StatusOK)))
@@ -328,7 +342,6 @@ func (d Database) ReadBook(w http.ResponseWriter, r *http.Request) {
 func (d Database) UpdateBook(w http.ResponseWriter, r *http.Request) {
 	userID, err := checkSession(w, r)
 	if err != nil {
-		log.Println("err", err)
 		http.Error(w, http.StatusText(http.StatusUnauthorized)+": you will need to login first", http.StatusUnauthorized)
 		return
 	}
@@ -351,14 +364,11 @@ func (d Database) UpdateBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//realm := "Access to the users private books"
 	if userID != bk.UserID {
-		//	w.Header().Set("WWW-Authenticate", `Basic realm="`+realm+`," charset="UTF-8"`)
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte(http.StatusText(http.StatusUnauthorized) + ": you dont have access to this resource"))
 		return
 	}
-	// w.Header().Set("Authorization", `Basic "`+uname+`":"`+pword+`"`)
 
 	if _, err = d.db.Exec("update books set id = $1, name = $2, author = $3, date = $4, userid = $5 where id = $1", idInt, bk.Name, bk.Author, bk.Date, bk.UserID); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -394,14 +404,11 @@ func (d Database) DeleteBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//realm := "Access to the users private books"
 	if userID != bk.UserID {
-		//	w.Header().Set("WWW-Authenticate", `Basic realm="`+realm+`," charset="UTF-8"`)
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte(http.StatusText(http.StatusUnauthorized) + ": you dont have access to this resource"))
 		return
 	}
-	// w.Header().Set("Authorization", `Basic "`+uname+`":"`+pword+`"`)
 
 	if _, err = d.db.Exec("delete from books where id = $1", idInt); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not delete book", http.StatusInternalServerError)
