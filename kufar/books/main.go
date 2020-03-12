@@ -174,7 +174,7 @@ func (d Database) SignUpUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if credReq.Username == "" || credReq.Password == "" {
+	if credReq.Username == "" && credReq.Password == "" {
 		http.Error(w, http.StatusText(http.StatusInternalServerError)+": missing username or password", http.StatusInternalServerError)
 		return
 	}
@@ -202,7 +202,7 @@ func (d Database) SignInUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if credReq.Username == "" || credReq.Password == "" {
+	if credReq.Username == "" && credReq.Password == "" {
 		http.Error(w, http.StatusText(http.StatusInternalServerError)+": missing username or password", http.StatusInternalServerError)
 		return
 	}
@@ -248,54 +248,61 @@ func (d Database) SignInUser(w http.ResponseWriter, r *http.Request) {
 }
 
 //CheckAuth ...
-func (d Database) CheckAuth(w http.ResponseWriter, r *http.Request, userid int) bool {
+func (d Database) CheckAuth(w http.ResponseWriter, r *http.Request) (id int, valid bool) {
 	cred := r.Header.Get("Authorization")
 	if cred == "" {
-		http.Error(w, http.StatusText(http.StatusInternalServerError)+": using cookies", http.StatusInternalServerError)
-		return false
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": no session found", http.StatusInternalServerError)
+		return 0, false
 	}
 
 	s := strings.Split(cred, " ")
 
 	if len(s) != 2 || s[0] != "Basic" || s[1] == "" {
 		http.Error(w, http.StatusText(http.StatusUnauthorized)+": incorrect data. ", http.StatusUnauthorized)
-		return false
+		return 0, false
 	}
 
 	b, err := base64.StdEncoding.DecodeString(s[1])
-	bStr := string(b)
-	if err != nil || strings.ContainsRune(bStr, ':') == false {
+
+	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not decode base64 string", http.StatusInternalServerError)
-		return false
+		return 0, false
+	}
+
+	bStr := string(b)
+
+	if !strings.ContainsRune(bStr, ':') {
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not decode base64 string", http.StatusInternalServerError)
+		return 0, false
 	}
 
 	creds := strings.Split(bStr, ":")
 
 	if len(creds) != 2 || s[0] == "" || s[1] == "" {
 		http.Error(w, http.StatusText(http.StatusUnauthorized)+": incorrect data", http.StatusUnauthorized)
-		return false
+		return 0, false
 	}
 
-	row := d.db.QueryRow("select username, password from credentials where uuid = $1", userid)
+	row := d.db.QueryRow("select uuid, username, password from credentials where username = $1", creds[0])
 
 	dbCred := Credentials{}
-	err = row.Scan(&dbCred.Username, &dbCred.Password)
+	err = row.Scan(&dbCred.UUID, &dbCred.Username, &dbCred.Password)
 
 	switch {
 	case err == sql.ErrNoRows:
 		http.NotFound(w, r)
-		return false
+		return 0, false
 	case err != nil:
 		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not scan db", http.StatusInternalServerError)
-		return false
+		return 0, false
 	}
 
-	if string(creds[0]) != dbCred.Username && string(creds[1]) != dbCred.Password {
+	if err = bcrypt.CompareHashAndPassword([]byte(dbCred.Password), []byte(creds[1])); err != nil {
 		http.Error(w, http.StatusText(http.StatusUnauthorized)+" authorization failed! ", http.StatusUnauthorized)
-		return false
+		return 0, false
 	}
 	w.Write([]byte(http.StatusText(http.StatusOK)))
-	return true
+	return dbCred.UUID, true
 }
 
 //LogoutUser ...
@@ -318,10 +325,21 @@ func (d Database) LogoutUser(w http.ResponseWriter, r *http.Request) {
 
 //CreateBook ...
 func (d Database) CreateBook(w http.ResponseWriter, r *http.Request) {
+	var userID int
+
 	userID, err := checkSession(w, r)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusUnauthorized)+": unauthorized access", http.StatusUnauthorized)
 		return
+	}
+
+	var valid bool
+
+	if userID == cookieCase {
+		userID, valid = d.CheckAuth(w, r)
+		if !valid {
+			return
+		}
 	}
 
 	var bk Book
@@ -332,14 +350,7 @@ func (d Database) CreateBook(w http.ResponseWriter, r *http.Request) {
 
 	now := time.Now().UTC()
 
-	fmt.Println("userid", userID, "bkid", bk.UserID)
-	switch {
-	case userID == cookieCase:
-		if !d.CheckAuth(w, r, bk.UserID) {
-			return
-		}
-
-	case userID != bk.UserID:
+	if userID != bk.UserID {
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte(http.StatusText(http.StatusUnauthorized) + ": you dont have access to this resource"))
 		return
@@ -421,10 +432,20 @@ func (d Database) ReadBook(w http.ResponseWriter, r *http.Request) {
 
 //UpdateBook ...
 func (d Database) UpdateBook(w http.ResponseWriter, r *http.Request) {
+	var userID int
 	userID, err := checkSession(w, r)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusUnauthorized)+": you will need to login first", http.StatusUnauthorized)
 		return
+	}
+
+	var valid bool
+
+	if userID == cookieCase {
+		userID, valid = d.CheckAuth(w, r)
+		if !valid {
+			return
+		}
 	}
 
 	id := chi.URLParam(r, "id")
@@ -439,25 +460,20 @@ func (d Database) UpdateBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	//dont allow bk.UserID to be changed in request body
 	var bk Book
 	if err := json.NewDecoder(r.Body).Decode(&bk); err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError)+": Error unmarshalling json", http.StatusInternalServerError)
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": error unmarshalling json", http.StatusInternalServerError)
 		return
 	}
 
-	switch {
-	case userID == cookieCase:
-		if !d.CheckAuth(w, r, bk.UserID) {
-			return
-		}
-
-	case userID != bk.UserID:
+	if userID != bk.UserID {
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte(http.StatusText(http.StatusUnauthorized) + ": you dont have access to this resource"))
 		return
 	}
 
-	if _, err = d.db.Exec("update books set id = $1, name = $2, author = $3, date = $4, userid = $5 where id = $1", idInt, bk.Name, bk.Author, bk.Date, bk.UserID); err != nil {
+	if _, err = d.db.Exec("update books set id = $1, name = $2, author = $3, date = $4 where id = $1", idInt, bk.Name, bk.Author, bk.Date); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -467,10 +483,21 @@ func (d Database) UpdateBook(w http.ResponseWriter, r *http.Request) {
 
 //DeleteBook ...
 func (d Database) DeleteBook(w http.ResponseWriter, r *http.Request) {
+	var userID int
+
 	userID, err := checkSession(w, r)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusUnauthorized)+": unauthorized access", http.StatusUnauthorized)
 		return
+	}
+
+	var valid bool
+
+	if userID == cookieCase {
+		userID, valid = d.CheckAuth(w, r)
+		if !valid {
+			return
+		}
 	}
 
 	id := chi.URLParam(r, "id")
@@ -491,13 +518,7 @@ func (d Database) DeleteBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	switch {
-	case userID == cookieCase:
-		if !d.CheckAuth(w, r, bk.UserID) {
-			return
-		}
-
-	case userID != bk.UserID:
+	if userID != bk.UserID {
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte(http.StatusText(http.StatusUnauthorized) + ": you dont have access to this resource"))
 		return
