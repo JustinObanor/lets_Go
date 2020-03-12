@@ -174,6 +174,11 @@ func (d Database) SignUpUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if credReq.Username == "" || credReq.Password == "" {
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": missing username or password", http.StatusInternalServerError)
+		return
+	}
+
 	pword, err := bcrypt.GenerateFromPassword([]byte(credReq.Password), cost)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not add password", http.StatusInternalServerError)
@@ -194,6 +199,11 @@ func (d Database) SignInUser(w http.ResponseWriter, r *http.Request) {
 	credReq := CredentialsRequest{}
 	if err := json.NewDecoder(r.Body).Decode(&credReq); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError)+": error unmarshalling json", http.StatusInternalServerError)
+		return
+	}
+
+	if credReq.Username == "" || credReq.Password == "" {
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": missing username or password", http.StatusInternalServerError)
 		return
 	}
 
@@ -229,6 +239,7 @@ func (d Database) SignInUser(w http.ResponseWriter, r *http.Request) {
 	cred.Username = credReq.Username
 
 	session.Values["user"] = cred.UUID
+
 	if err = session.Save(r, w); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not assign cookie", http.StatusInternalServerError)
 		return
@@ -237,7 +248,7 @@ func (d Database) SignInUser(w http.ResponseWriter, r *http.Request) {
 }
 
 //CheckAuth ...
-func (d Database) CheckAuth(w http.ResponseWriter, r *http.Request) bool {
+func (d Database) CheckAuth(w http.ResponseWriter, r *http.Request, userid int) bool {
 	cred := r.Header.Get("Authorization")
 	if cred == "" {
 		http.Error(w, http.StatusText(http.StatusInternalServerError)+": using cookies", http.StatusInternalServerError)
@@ -265,10 +276,11 @@ func (d Database) CheckAuth(w http.ResponseWriter, r *http.Request) bool {
 		return false
 	}
 
-	row := d.db.QueryRow("select username, password from credentials where username = $1", creds[0])
+	row := d.db.QueryRow("select username, password from credentials where uuid = $1", userid)
 
 	dbCred := Credentials{}
 	err = row.Scan(&dbCred.Username, &dbCred.Password)
+
 	switch {
 	case err == sql.ErrNoRows:
 		http.NotFound(w, r)
@@ -323,10 +335,10 @@ func (d Database) CreateBook(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("userid", userID, "bkid", bk.UserID)
 	switch {
 	case userID == cookieCase:
-		if !d.CheckAuth(w, r) {
+		if !d.CheckAuth(w, r, bk.UserID) {
 			return
 		}
-		
+
 	case userID != bk.UserID:
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte(http.StatusText(http.StatusUnauthorized) + ": you dont have access to this resource"))
@@ -373,6 +385,7 @@ func (d Database) ReadBooks(w http.ResponseWriter, r *http.Request) {
 
 //ReadBook ...
 func (d Database) ReadBook(w http.ResponseWriter, r *http.Request) {
+	//check for no book
 	id := chi.URLParam(r, "id")
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
@@ -434,7 +447,7 @@ func (d Database) UpdateBook(w http.ResponseWriter, r *http.Request) {
 
 	switch {
 	case userID == cookieCase:
-		if !d.CheckAuth(w, r) {
+		if !d.CheckAuth(w, r, bk.UserID) {
 			return
 		}
 
@@ -480,7 +493,7 @@ func (d Database) DeleteBook(w http.ResponseWriter, r *http.Request) {
 
 	switch {
 	case userID == cookieCase:
-		if !d.CheckAuth(w, r) {
+		if !d.CheckAuth(w, r, bk.UserID) {
 			return
 		}
 
