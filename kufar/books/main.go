@@ -182,14 +182,14 @@ func (d Database) SignUpUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Write([]byte(http.StatusText(http.StatusOK) + ": auth passed"))
+	w.Write([]byte(http.StatusText(http.StatusOK) + ": signup passed"))
 }
 
-func (d Database) getBookUserID(idInt int) (int, error) {
-	row := d.db.QueryRow("select userid from books where id = $1", idInt)
+func (d Database) getBookUserID(bookID int) (int, error) {
+	row := d.db.QueryRow("select userid from books where id = $1", bookID)
 
-	var userid int
-	err := row.Scan(&userid)
+	var userID int
+	err := row.Scan(&userID)
 
 	switch {
 	case err == sql.ErrNoRows:
@@ -197,11 +197,11 @@ func (d Database) getBookUserID(idInt int) (int, error) {
 	case err != nil:
 		return 0, err
 	}
-	return userid, nil
+	return userID, nil
 }
 
 //CheckAuth ...
-func (d Database) CheckAuth(header *http.Header) (id int, valid bool) {
+func (d Database) CheckAuth(header *http.Header) (int, bool) {
 	cred := header.Get("Authorization")
 	if cred == "" {
 		return 0, false
@@ -247,10 +247,7 @@ func (d Database) CheckAuth(header *http.Header) (id int, valid bool) {
 
 //CreateBook ...
 func (d Database) CreateBook(w http.ResponseWriter, r *http.Request) {
-	var userID int
-	var valid bool
-
-	userID, valid = d.CheckAuth(&r.Header)
+	userID, valid := d.CheckAuth(&r.Header)
 	if !valid {
 		http.Error(w, http.StatusText(http.StatusInternalServerError)+": invalid creds", http.StatusInternalServerError)
 		return
@@ -323,7 +320,6 @@ func (d Database) ReadBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-
 	row := d.db.QueryRow("select * from books where id = $1", idInt)
 
 	bk := Book{}
@@ -347,10 +343,7 @@ func (d Database) ReadBook(w http.ResponseWriter, r *http.Request) {
 
 //UpdateBook ...
 func (d Database) UpdateBook(w http.ResponseWriter, r *http.Request) {
-	var userID int
-	var valid bool
-
-	userID, valid = d.CheckAuth(&r.Header)
+	userID, valid := d.CheckAuth(&r.Header)
 	if !valid {
 		return
 	}
@@ -396,10 +389,7 @@ func (d Database) UpdateBook(w http.ResponseWriter, r *http.Request) {
 
 //DeleteBook ...
 func (d Database) DeleteBook(w http.ResponseWriter, r *http.Request) {
-	var userID int
-	var valid bool
-
-	userID, valid = d.CheckAuth(&r.Header)
+	userID, valid := d.CheckAuth(&r.Header)
 	if !valid {
 		return
 	}
