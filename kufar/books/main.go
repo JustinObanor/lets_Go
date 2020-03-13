@@ -126,6 +126,23 @@ func convertToResponse(books Book) BookResponse {
 	}
 }
 
+func (d Database) getBookID(w http.ResponseWriter, r *http.Request, idInt int) int  {
+	row := d.db.QueryRow("select userid from books where id = $1", idInt)
+
+	var temp int
+	err := row.Scan(&temp)
+
+	switch {
+	case err == sql.ErrNoRows:
+		http.NotFound(w, r)
+		return 0
+	case err != nil:
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": error scanning db", http.StatusInternalServerError)
+		return 0
+	}
+	return temp
+}
+
 //New constructor that return database
 func New() (*Database, error) {
 	var err error
@@ -333,23 +350,6 @@ func (d Database) ReadBook(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (d Database) getBookID(w http.ResponseWriter, r *http.Request, idInt, userID int) int  {
-	row := d.db.QueryRow("select userid from books where id = $1", idInt)
-
-	var temp int
-	err := row.Scan(&temp)
-
-	switch {
-	case err == sql.ErrNoRows:
-		http.NotFound(w, r)
-		return 0
-	case err != nil:
-		http.Error(w, http.StatusText(http.StatusInternalServerError)+": error scanning db", http.StatusInternalServerError)
-		return 0
-	}
-	return temp
-}
-
 //UpdateBook ...
 func (d Database) UpdateBook(w http.ResponseWriter, r *http.Request) {
 	var userID int
@@ -372,7 +372,7 @@ func (d Database) UpdateBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}	
 
-	temp := d.getBookID(w, r, idInt, userID)
+	temp := d.getBookID(w, r, idInt)
 
 	if userID != temp {
 		http.Error(w, http.StatusText(http.StatusInternalServerError)+": stop right there criminal scum!", http.StatusInternalServerError)
@@ -419,6 +419,13 @@ func (d Database) DeleteBook(w http.ResponseWriter, r *http.Request) {
 	if id == "" {
 		http.Error(w, http.StatusText(http.StatusBadRequest)+": missing parameter in url", http.StatusBadRequest)
 		return
+	}
+
+	temp := d.getBookID(w, r, idInt)
+
+	if userID != temp {
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": stop right there criminal scum!", http.StatusInternalServerError)
+		return 
 	}
 
 	var bk Book
