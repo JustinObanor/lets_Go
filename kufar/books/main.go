@@ -40,7 +40,14 @@ type Book struct {
 	UserID int
 }
 
-//BookResponse struct
+//BookRequest ...
+type BookRequest struct {
+	ID     int    `json:"id"`
+	Name   string `json:"name"`
+	Author string `json:"author"`
+}
+
+//BookResponse ...
 type BookResponse struct {
 	ID     int    `json:"id"`
 	Name   string `json:"name"`
@@ -49,17 +56,17 @@ type BookResponse struct {
 	UserID int    `json:"userid"`
 }
 
-//CredentialsRequest ...
-type CredentialsRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
 //Credentials ...
 type Credentials struct {
 	UUID     int
 	Username string
 	Password string
+}
+
+//CredentialsRequest ...
+type CredentialsRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 //Database ...
@@ -126,23 +133,6 @@ func convertToResponse(books Book) BookResponse {
 	}
 }
 
-func (d Database) getBookID(w http.ResponseWriter, r *http.Request, idInt int) int  {
-	row := d.db.QueryRow("select userid from books where id = $1", idInt)
-
-	var temp int
-	err := row.Scan(&temp)
-
-	switch {
-	case err == sql.ErrNoRows:
-		http.NotFound(w, r)
-		return 0
-	case err != nil:
-		http.Error(w, http.StatusText(http.StatusInternalServerError)+": error scanning db", http.StatusInternalServerError)
-		return 0
-	}
-	return temp
-}
-
 //New constructor that return database
 func New() (*Database, error) {
 	var err error
@@ -195,38 +185,45 @@ func (d Database) SignUpUser(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(http.StatusText(http.StatusOK) + ": auth passed"))
 }
 
+func (d Database) getBookUserID(idInt int) (int, error) {
+	row := d.db.QueryRow("select userid from books where id = $1", idInt)
+
+	var userid int
+	err := row.Scan(&userid)
+
+	switch {
+	case err == sql.ErrNoRows:
+		return 0, err
+	case err != nil:
+		return 0, err
+	}
+	return userid, nil
+}
+
 //CheckAuth ...
-func (d Database) CheckAuth(w http.ResponseWriter, r *http.Request) (id int, valid bool) {
-	cred := r.Header.Get("Authorization")
+func (d Database) CheckAuth(header *http.Header) (id int, valid bool) {
+	cred := header.Get("Authorization")
 	if cred == "" {
-		http.Error(w, http.StatusText(http.StatusInternalServerError)+": missing authorization header", http.StatusInternalServerError)
 		return 0, false
 	}
 
 	s := strings.Split(cred, " ")
-
 	if len(s) != 2 || s[0] != "Basic" || s[1] == "" {
-		http.Error(w, http.StatusText(http.StatusUnauthorized)+": incorrect data. ", http.StatusUnauthorized)
 		return 0, false
 	}
 
 	b, err := base64.StdEncoding.DecodeString(s[1])
 	if err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not decode base64 string", http.StatusInternalServerError)
 		return 0, false
 	}
 
 	bStr := string(b)
-
 	if !strings.ContainsRune(bStr, ':') {
-		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not decode base64 string", http.StatusInternalServerError)
 		return 0, false
 	}
 
 	creds := strings.Split(bStr, ":")
-
 	if len(creds) != 2 || s[0] == "" || s[1] == "" {
-		http.Error(w, http.StatusText(http.StatusUnauthorized)+": incorrect data", http.StatusUnauthorized)
 		return 0, false
 	}
 
@@ -237,18 +234,14 @@ func (d Database) CheckAuth(w http.ResponseWriter, r *http.Request) (id int, val
 
 	switch {
 	case err == sql.ErrNoRows:
-		http.NotFound(w, r)
 		return 0, false
 	case err != nil:
-		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not scan db", http.StatusInternalServerError)
 		return 0, false
 	}
 
 	if err = bcrypt.CompareHashAndPassword([]byte(dbCred.Password), []byte(creds[1])); err != nil {
-		http.Error(w, http.StatusText(http.StatusUnauthorized)+" authorization failed! ", http.StatusUnauthorized)
 		return 0, false
 	}
-	w.Write([]byte(http.StatusText(http.StatusOK)))
 	return dbCred.UUID, true
 }
 
@@ -257,7 +250,7 @@ func (d Database) CreateBook(w http.ResponseWriter, r *http.Request) {
 	var userID int
 	var valid bool
 
-	userID, valid = d.CheckAuth(w, r)
+	userID, valid = d.CheckAuth(&r.Header)
 	if !valid {
 		http.Error(w, http.StatusText(http.StatusInternalServerError)+": invalid creds", http.StatusInternalServerError)
 		return
@@ -265,7 +258,7 @@ func (d Database) CreateBook(w http.ResponseWriter, r *http.Request) {
 
 	var bk Book
 	if err := json.NewDecoder(r.Body).Decode(&bk); err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError)+": eror unmarshalling json", http.StatusInternalServerError)
+		http.Error(w, http.StatusText(http.StatusBadRequest)+": eror unmarshalling json", http.StatusBadRequest)
 		return
 	}
 
@@ -310,7 +303,7 @@ func (d Database) ReadBooks(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(resps); err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError)+": error marshelling json", http.StatusInternalServerError)
+		http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
 		return
 	}
 }
@@ -318,16 +311,18 @@ func (d Database) ReadBooks(w http.ResponseWriter, r *http.Request) {
 //ReadBook ...
 func (d Database) ReadBook(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+
+	if id == "" {
+		http.Error(w, http.StatusText(http.StatusBadRequest)+": missing parameter in url", http.StatusBadRequest)
+		return
+	}
+
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not convert to integer", http.StatusInternalServerError)
 		return
 	}
 
-	if id == "" {
-		http.Error(w, http.StatusText(http.StatusBadRequest)+": missing parameter in url", http.StatusBadRequest)
-		return
-	}
 
 	row := d.db.QueryRow("select * from books where id = $1", idInt)
 
@@ -345,7 +340,7 @@ func (d Database) ReadBook(w http.ResponseWriter, r *http.Request) {
 	resp := convertToResponse(bk)
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError)+": Error marshalling json", http.StatusInternalServerError)
+		http.Error(w, http.StatusText(http.StatusBadRequest)+": Error marshalling json", http.StatusBadRequest)
 		return
 	}
 }
@@ -355,43 +350,43 @@ func (d Database) UpdateBook(w http.ResponseWriter, r *http.Request) {
 	var userID int
 	var valid bool
 
-	userID, valid = d.CheckAuth(w, r)
+	userID, valid = d.CheckAuth(&r.Header)
 	if !valid {
 		return
 	}
 
 	id := chi.URLParam(r, "id")
+
+	if id == "" {
+		http.Error(w, http.StatusText(http.StatusBadRequest)+": missing parameter in url", http.StatusBadRequest)
+		return
+	}
+
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not convert to integer", http.StatusInternalServerError)
 		return
 	}
 
-	if id == "" {
-		http.Error(w, http.StatusText(http.StatusBadRequest)+": missing parameter in url", http.StatusBadRequest)
+	bkUserID, err := d.getBookUserID(idInt)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not convert to integer", http.StatusInternalServerError)
 		return
-	}	
+	}
 
-	temp := d.getBookID(w, r, idInt)
-
-	if userID != temp {
+	if userID != bkUserID {
 		http.Error(w, http.StatusText(http.StatusInternalServerError)+": stop right there criminal scum!", http.StatusInternalServerError)
-		return 
-	}
-
-	var bk Book
-	if err := json.NewDecoder(r.Body).Decode(&bk); err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError)+": error unmarshalling json", http.StatusInternalServerError)
 		return
 	}
 
-	if userID != bk.UserID {
-		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(http.StatusText(http.StatusUnauthorized) + ": you dont have access to this resource"))
+	var bkReq BookRequest
+	if err := json.NewDecoder(r.Body).Decode(&bkReq); err != nil {
+		http.Error(w, http.StatusText(http.StatusBadRequest)+": error unmarshalling json", http.StatusBadRequest)
 		return
 	}
 
-	if _, err = d.db.Exec("update books set id = $1, name = $2, author = $3, date = $4 where id = $1", idInt, bk.Name, bk.Author, bk.Date); err != nil {
+	bk := Book{ID: bkReq.ID, Name: bkReq.Name, Author: bkReq.Author}
+	if _, err = d.db.Exec("update books set id = $1, name = $2, author = $3 where id = $1", idInt, bk.Name, bk.Author); err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -404,39 +399,39 @@ func (d Database) DeleteBook(w http.ResponseWriter, r *http.Request) {
 	var userID int
 	var valid bool
 
-	userID, valid = d.CheckAuth(w, r)
+	userID, valid = d.CheckAuth(&r.Header)
 	if !valid {
 		return
 	}
 
 	id := chi.URLParam(r, "id")
-	idInt, err := strconv.Atoi(id)
-	if err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not convert to integer", http.StatusInternalServerError)
-		return
-	}
 
 	if id == "" {
 		http.Error(w, http.StatusText(http.StatusBadRequest)+": missing parameter in url", http.StatusBadRequest)
 		return
 	}
 
-	temp := d.getBookID(w, r, idInt)
-
-	if userID != temp {
-		http.Error(w, http.StatusText(http.StatusInternalServerError)+": stop right there criminal scum!", http.StatusInternalServerError)
-		return 
-	}
-
-	var bk Book
-	if err := json.NewDecoder(r.Body).Decode(&bk); err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError)+": Error unmarshalling json", http.StatusInternalServerError)
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not convert to integer", http.StatusInternalServerError)
 		return
 	}
 
-	if userID != bk.UserID {
+	bkUserID, err := d.getBookUserID(idInt)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not convert to integer", http.StatusInternalServerError)
+		return
+	}
+
+	if userID != bkUserID {
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte(http.StatusText(http.StatusUnauthorized) + ": you dont have access to this resource"))
+		return
+	}
+
+	var bk BookRequest
+	if err := json.NewDecoder(r.Body).Decode(&bk); err != nil {
+		http.Error(w, http.StatusText(http.StatusBadRequest)+": Error unmarshalling json", http.StatusBadRequest)
 		return
 	}
 
