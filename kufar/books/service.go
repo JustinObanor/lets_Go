@@ -11,20 +11,6 @@ func SignUp(d Database) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-//SignIn ...
-func SignIn(d Database) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		d.SignInUser(w, r)
-	}
-}
-
-//Logout ...
-func Logout(d Database) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		d.LogoutUser(w, r)
-	}
-}
-
 //Create ...
 func Create(d Database) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
