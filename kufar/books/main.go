@@ -83,19 +83,19 @@ func main() {
 
 	defer db.Close()
 
-	r.Post("/signup", SignUp(*db))
+	r.Post("/signup", SignUpUser(*db))
 
 	r.Middlewares()
 
 	r.Route("/books", func(r chi.Router) {
 		r.Use(StupidMiddleware("1"))
-		r.Post("/", Create(*db))
-		r.Get("/", ReadAll(*db))
+		r.Post("/", CreateBook(*db))
+		r.Get("/", ReadBooks(*db))
 
 		r.Route("/{id}", func(r chi.Router) {
-			r.Get("/", Read(*db))
-			r.Put("/", Update(*db))
-			r.Delete("/", Delete(*db))
+			r.Get("/", ReadBook(*db))
+			r.Put("/", UpdateBook(*db))
+			r.Delete("/", DeleteBook(*db))
 
 		})
 	})
