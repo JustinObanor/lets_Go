@@ -7,41 +7,41 @@ import (
 //SignUp ...
 func SignUp(d Database) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		d.SignUpUser(w, r)
+		SignUpUser(d)
 	}
 }
 
 //Create ...
 func Create(d Database) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		d.CreateBook(w, r)
+		CreateBook(d)
 	}
 }
 
 //Read ...
 func Read(d Database) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		d.ReadBook(w, r)
+		ReadBook(d)
 	}
 }
 
 //ReadAll ...
 func ReadAll(d Database) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		d.ReadBooks(w, r)
+		ReadBooks(d)
 	}
 }
 
 //Update ...
 func Update(d Database) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		d.UpdateBook(w, r)
+		UpdateBook(d)
 	}
 }
 
 //Delete ...
 func Delete(d Database) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		d.DeleteBook(w, r)
+		DeleteBook(d)
 	}
 }
