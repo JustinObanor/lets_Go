@@ -10,6 +10,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi"
@@ -21,11 +22,11 @@ import (
 
 const cost = 12
 
-var host = getenv("PSQL_HOST", "db")
+var host = getenv("PSQL_HOST", "localhost")
 var port = getenv("PSQL_PORT", "5432")
 var user = getenv("PSQL_USER", "postgres")
-var password = getenv("PSQL_PWDcas", "postgres")
-var dbname = getenv("PSQL_DB_NAME", "books")
+var password = getenv("PSQL_PWDcas", "justin1999")
+var dbname = getenv("PSQL_DB_NAME", "book")
 
 var location, _ = time.LoadLocation("Europe/Minsk")
 
@@ -38,6 +39,13 @@ type Book struct {
 	Author string
 	Date   time.Time
 	UserID int
+	Time   TimeStruct
+}
+
+//TimeStruct ...
+type TimeStruct struct {
+	sync.Mutex
+	Time []time.Time
 }
 
 //BookRequest ...
@@ -80,8 +88,24 @@ func main() {
 	if err != nil {
 		log.Fatalf("error connecting to db: %v", err)
 	}
-
 	defer db.Close()
+
+	var bk Book
+
+	go func() {
+
+		tick := time.NewTicker(time.Second * 5)
+
+		for {
+			select {
+			case <-tick.C:
+				bk.Time.Lock()
+				bk.Time.Time = append(bk.Time.Time, time.Now())
+				//fmt.Printf("%+v", bk.Time)
+				bk.Time.Unlock()
+			}
+		}
+	}()
 
 	r.Post("/signup", SignUpUser(*db))
 
@@ -96,11 +120,26 @@ func main() {
 			r.Get("/", ReadBook(*db))
 			r.Put("/", UpdateBook(*db))
 			r.Delete("/", DeleteBook(*db))
-
 		})
 	})
 
+	r.Get("/time", ReadTime(&bk.Time))
+
 	log.Fatal(http.ListenAndServe(":8080", r))
+}
+
+//ReadTime ...
+func ReadTime(ts *TimeStruct) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("wtf")
+		var timeSlice []string
+		for _, t := range ts.Time {
+			ts.Lock()
+			timeSlice = append(timeSlice, t.Format(time.Stamp))
+			ts.Unlock()
+		}
+		fmt.Printf("time : %v", timeSlice)
+	}
 }
 
 func getenv(key, fallback string) string {
@@ -155,7 +194,6 @@ func New() (*Database, error) {
 func (d Database) Close() error {
 	return d.db.Close()
 }
-
 
 func (d Database) getBookUserID(bookID int) (int, error) {
 	row := d.db.QueryRow("select userid from books where id = $1", bookID)
@@ -281,7 +319,7 @@ func CreateBook(d Database) func(w http.ResponseWriter, r *http.Request) {
 //ReadBooks ...
 func ReadBooks(d Database) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		rows, err := d.db.Query("select * from books order by id asc")
+		rows, err := d.db.Query("select id, name, author, date, userid from books order by id asc")
 		if err != nil {
 			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not list books", http.StatusInternalServerError)
 			return
@@ -327,7 +365,7 @@ func ReadBook(d Database) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		row := d.db.QueryRow("select * from books where id = $1", idInt)
+		row := d.db.QueryRow("select id, name, author, date, userid from books where id = $1", idInt)
 
 		bk := Book{}
 		err = row.Scan(&bk.ID, &bk.Name, &bk.Author, &bk.Date, &bk.UserID)
