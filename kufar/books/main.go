@@ -39,13 +39,8 @@ type Book struct {
 	Author string
 	Date   time.Time
 	UserID int
-	Time   TimeStruct
-}
-
-//TimeStruct ...
-type TimeStruct struct {
-	sync.Mutex
-	Time []time.Time
+	Time   []time.Time
+	mu     sync.RWMutex
 }
 
 //BookRequest ...
@@ -93,17 +88,12 @@ func main() {
 	var bk Book
 
 	go func() {
+		tick := time.NewTicker(time.Second)
 
-		tick := time.NewTicker(time.Second * 5)
-
-		for {
-			select {
-			case <-tick.C:
-				bk.Time.Lock()
-				bk.Time.Time = append(bk.Time.Time, time.Now())
-				//fmt.Printf("%+v", bk.Time)
-				bk.Time.Unlock()
-			}
+		for range tick.C {
+			bk.mu.Lock()
+			bk.Time = append(bk.Time, time.Now())
+			bk.mu.Unlock()
 		}
 	}()
 
@@ -123,22 +113,25 @@ func main() {
 		})
 	})
 
-	r.Get("/time", ReadTime(&bk.Time))
+	r.Get("/time", ReadTime(&bk))
 
 	log.Fatal(http.ListenAndServe(":8080", r))
 }
 
 //ReadTime ...
-func ReadTime(ts *TimeStruct) func(w http.ResponseWriter, r *http.Request) {
+func ReadTime(bk *Book) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("wtf")
 		var timeSlice []string
-		for _, t := range ts.Time {
-			ts.Lock()
+
+		bk.mu.RLock()
+		for _, t := range bk.Time {
 			timeSlice = append(timeSlice, t.Format(time.Stamp))
-			ts.Unlock()
 		}
-		fmt.Printf("time : %v", timeSlice)
+		bk.mu.RUnlock()
+
+		for i, v := range timeSlice {
+			fmt.Printf("time %d : %s\n", i, v)
+		}
 	}
 }
 
