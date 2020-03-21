@@ -39,9 +39,10 @@ type Book struct {
 	Author string
 	Date   time.Time
 	UserID int
-	Time   []time.Time
-	mu     sync.RWMutex
 }
+
+//try sync.Mutex
+//shared vzribles
 
 //BookRequest ...
 type BookRequest struct {
@@ -75,6 +76,9 @@ type CredentialsRequest struct {
 //Database ...
 type Database struct {
 	db *sql.DB
+
+	mu   sync.RWMutex
+	Time []time.Time
 }
 
 func main() {
@@ -85,17 +89,18 @@ func main() {
 	}
 	defer db.Close()
 
-	var bk Book
 
 	go func() {
 		tick := time.NewTicker(time.Second)
-
 		for range tick.C {
-			bk.mu.Lock()
-			bk.Time = append(bk.Time, time.Now())
-			bk.mu.Unlock()
+			db.mu.Lock()
+			db.Time = append(db.Time, time.Now())
+			db.mu.Unlock()
 		}
+		//log books
+
 	}()
+	//log books
 
 	r.Post("/signup", SignUpUser(*db))
 
@@ -113,21 +118,21 @@ func main() {
 		})
 	})
 
-	r.Get("/time", ReadTime(&bk))
+	r.Get("/time", ReadTime(db))
 
 	log.Fatal(http.ListenAndServe(":8080", r))
 }
 
 //ReadTime ...
-func ReadTime(bk *Book) func(w http.ResponseWriter, r *http.Request) {
+func ReadTime(db *Database) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var timeSlice []string
 
-		bk.mu.RLock()
-		for _, t := range bk.Time {
+		db.mu.RLock()
+		for _, t := range db.Time {
 			timeSlice = append(timeSlice, t.Format(time.Stamp))
 		}
-		bk.mu.RUnlock()
+		db.mu.RUnlock()
 
 		for i, v := range timeSlice {
 			fmt.Printf("time %d : %s\n", i, v)
