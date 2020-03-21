@@ -41,9 +41,6 @@ type Book struct {
 	UserID int
 }
 
-//try sync.Mutex
-//shared vzribles
-
 //BookRequest ...
 type BookRequest struct {
 	ID     int    `json:"id"`
@@ -97,10 +94,8 @@ func main() {
 			db.Time = append(db.Time, time.Now())
 			db.mu.Unlock()
 		}
-		//log books
 
 	}()
-	//log books
 
 	r.Post("/signup", SignUpUser(*db))
 
