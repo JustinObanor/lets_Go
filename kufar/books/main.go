@@ -84,6 +84,12 @@ type Cache struct {
 	Items map[int]Book
 }
 
+type Cacher interface {
+	get(int) (Book, bool)
+	set(int, Book)
+	remove(int)
+}
+
 //Database ...
 type Database struct {
 	db *sql.DB
@@ -107,7 +113,8 @@ func main() {
 		r.Get("/", ReadBooks(*db))
 
 		r.Route("/{id}", func(r chi.Router) {
-			r.Get("/", ReadBook(*db))
+			c := NewCache()
+			r.Get("/", ReadBook(*db, *c))
 			r.Put("/", UpdateBook(*db))
 			r.Delete("/", DeleteBook(*db))
 		})
@@ -143,6 +150,11 @@ func convertToResponse(books Book) BookResponse {
 		Date:   books.Date.In(location).Format(time.RFC1123),
 		UserID: books.UserID,
 	}
+}
+
+//NewCache constructor
+func NewCache() *Cache {
+	return &Cache{Items: make(map[int]Book)}
 }
 
 //New constructor that return database
@@ -323,38 +335,32 @@ func ReadBooks(d Database) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (c Cache) get(id int) (Book, bool) {
-	var bk Book
-
+func (c *Cache) get(id int) (Book, bool) {
 	c.mu.RLock()
-	if bk, ok := c.Items[id]; !ok {
-		c.mu.RUnlock()
+	defer c.mu.RUnlock()
+
+	bk, ok := c.Items[id]
+	if !ok {
 		return bk, false
 	}
-	c.mu.RUnlock()
 
 	return bk, true
 }
 
-//NewMap constructor
-func NewMap() *Cache {
-	return &Cache{Items: make(map[int]Book)}
-}
-
-func (c Cache) set(id int, book Book) {
+func (c *Cache) set(id int, book *Book) {
 	c.mu.Lock()
-	c.Items[id] = book
+	c.Items[id] = *book
 	c.mu.Unlock()
 }
 
-func (c Cache) remove(id int) {
+func (c *Cache) remove(id int) {
 	c.mu.Lock()
 	delete(c.Items, id)
 	c.mu.Unlock()
 }
 
 //ReadBook ...
-func ReadBook(d Database) func(w http.ResponseWriter, r *http.Request) {
+func ReadBook(d Database, c Cache) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := chi.URLParam(r, "id")
 
@@ -369,9 +375,9 @@ func ReadBook(d Database) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		c := NewMap()
+		cbk, ok := c.get(idInt)
 
-		if _, ok := c.get(idInt); !ok {
+		if !ok {
 			row := d.db.QueryRow("select id, name, author, date, userid from books where id = $1", idInt)
 
 			bk := Book{}
@@ -384,16 +390,17 @@ func ReadBook(d Database) func(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, http.StatusText(http.StatusInternalServerError)+": error scanning db", http.StatusInternalServerError)
 				return
 			}
-			c.set(idInt, bk)
+
+			c.set(idInt, &bk)
 		}
 
-			resp := convertToResponse(c.Items[idInt])
-			w.Header().Set("Content-Type", "application/json")
-			if err := json.NewEncoder(w).Encode(resp); err != nil {
-				http.Error(w, http.StatusText(http.StatusBadRequest)+": Error marshalling json", http.StatusBadRequest)
-				return
-			}
-		
+		resp := convertToResponse(cbk)
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			http.Error(w, http.StatusText(http.StatusBadRequest)+": Error marshalling json", http.StatusBadRequest)
+			return
+		}
+
 	}
 }
 
