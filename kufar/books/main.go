@@ -20,7 +20,13 @@ import (
 	_ "github.com/lib/pq"
 )
 
-const cost = 12
+const (
+	cost = 12
+
+	// NoExpiration time.Duration = -1
+
+	// DefaultExpiration time.Duration = 0
+)
 
 var host = getenv("PSQL_HOST", "localhost")
 var port = getenv("PSQL_PORT", "5432")
@@ -70,12 +76,17 @@ type CredentialsRequest struct {
 	Password string `json:"password"`
 }
 
+//Cache ...
+type Cache struct {
+	// defaultExpiration time.Duration
+
+	mu    sync.RWMutex
+	Items map[int]Book
+}
+
 //Database ...
 type Database struct {
 	db *sql.DB
-
-	mu   sync.RWMutex
-	Time []time.Time
 }
 
 func main() {
@@ -85,17 +96,6 @@ func main() {
 		log.Fatalf("error connecting to db: %v", err)
 	}
 	defer db.Close()
-
-
-	go func() {
-		tick := time.NewTicker(time.Second)
-		for range tick.C {
-			db.mu.Lock()
-			db.Time = append(db.Time, time.Now())
-			db.mu.Unlock()
-		}
-
-	}()
 
 	r.Post("/signup", SignUpUser(*db))
 
@@ -113,26 +113,7 @@ func main() {
 		})
 	})
 
-	r.Get("/time", ReadTime(db))
-
 	log.Fatal(http.ListenAndServe(":8080", r))
-}
-
-//ReadTime ...
-func ReadTime(db *Database) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var timeSlice []string
-
-		db.mu.RLock()
-		for _, t := range db.Time {
-			timeSlice = append(timeSlice, t.Format(time.Stamp))
-		}
-		db.mu.RUnlock()
-
-		for i, v := range timeSlice {
-			fmt.Printf("time %d : %s\n", i, v)
-		}
-	}
 }
 
 func getenv(key, fallback string) string {
@@ -342,6 +323,36 @@ func ReadBooks(d Database) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (c Cache) get(id int) (Book, bool) {
+	var bk Book
+
+	c.mu.RLock()
+	if bk, ok := c.Items[id]; !ok {
+		c.mu.RUnlock()
+		return bk, false
+	}
+	c.mu.RUnlock()
+
+	return bk, true
+}
+
+//NewMap constructor
+func NewMap() *Cache {
+	return &Cache{Items: make(map[int]Book)}
+}
+
+func (c Cache) set(id int, book Book) {
+	c.mu.Lock()
+	c.Items[id] = book
+	c.mu.Unlock()
+}
+
+func (c Cache) remove(id int) {
+	c.mu.Lock()
+	delete(c.Items, id)
+	c.mu.Unlock()
+}
+
 //ReadBook ...
 func ReadBook(d Database) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -358,25 +369,31 @@ func ReadBook(d Database) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		row := d.db.QueryRow("select id, name, author, date, userid from books where id = $1", idInt)
+		c := NewMap()
 
-		bk := Book{}
-		err = row.Scan(&bk.ID, &bk.Name, &bk.Author, &bk.Date, &bk.UserID)
-		switch {
-		case err == sql.ErrNoRows:
-			http.NotFound(w, r)
-			return
-		case err != nil:
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": error scanning db", http.StatusInternalServerError)
-			return
+		if _, ok := c.get(idInt); !ok {
+			row := d.db.QueryRow("select id, name, author, date, userid from books where id = $1", idInt)
+
+			bk := Book{}
+			err = row.Scan(&bk.ID, &bk.Name, &bk.Author, &bk.Date, &bk.UserID)
+			switch {
+			case err == sql.ErrNoRows:
+				http.NotFound(w, r)
+				return
+			case err != nil:
+				http.Error(w, http.StatusText(http.StatusInternalServerError)+": error scanning db", http.StatusInternalServerError)
+				return
+			}
+			c.set(idInt, bk)
 		}
 
-		resp := convertToResponse(bk)
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(resp); err != nil {
-			http.Error(w, http.StatusText(http.StatusBadRequest)+": Error marshalling json", http.StatusBadRequest)
-			return
-		}
+			resp := convertToResponse(c.Items[idInt])
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(resp); err != nil {
+				http.Error(w, http.StatusText(http.StatusBadRequest)+": Error marshalling json", http.StatusBadRequest)
+				return
+			}
+		
 	}
 }
 
@@ -423,6 +440,9 @@ func UpdateBook(d Database) func(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
+
+		c := Cache{}
+		c.remove(idInt)
 
 		w.Write([]byte(http.StatusText(http.StatusOK) + ": updated book"))
 	}
