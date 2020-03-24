@@ -20,7 +20,13 @@ import (
 	_ "github.com/lib/pq"
 )
 
-const cost = 12
+const (
+	cost = 12
+
+	// NoExpiration time.Duration = -1
+
+	// DefaultExpiration time.Duration = 0
+)
 
 var host = getenv("PSQL_HOST", "localhost")
 var port = getenv("PSQL_PORT", "5432")
@@ -70,33 +76,35 @@ type CredentialsRequest struct {
 	Password string `json:"password"`
 }
 
+type cache struct {
+	// defaultExpiration time.Duration
+
+	mu    sync.RWMutex
+	Items map[int]Book
+}
+
+//Cache interface
+type Cache interface {
+	Get(int) (Book, bool)
+	Set(int, *Book)
+	Remove(int)
+}
+
 //Database ...
 type Database struct {
 	db *sql.DB
-
-	mu   sync.RWMutex
-	Time []time.Time
 }
 
 func main() {
-	r := chi.NewRouter()
-	db, err := New()
+	c := newCache()
+
+	db, err := newDB()
 	if err != nil {
 		log.Fatalf("error connecting to db: %v", err)
 	}
 	defer db.Close()
 
-
-	go func() {
-		tick := time.NewTicker(time.Second)
-		for range tick.C {
-			db.mu.Lock()
-			db.Time = append(db.Time, time.Now())
-			db.mu.Unlock()
-		}
-
-	}()
-
+	r := chi.NewRouter()
 	r.Post("/signup", SignUpUser(*db))
 
 	r.Middlewares()
@@ -107,32 +115,13 @@ func main() {
 		r.Get("/", ReadBooks(*db))
 
 		r.Route("/{id}", func(r chi.Router) {
-			r.Get("/", ReadBook(*db))
-			r.Put("/", UpdateBook(*db))
+			r.Get("/", ReadBook(*db, c))
+			r.Put("/", UpdateBook(*db, c))
 			r.Delete("/", DeleteBook(*db))
 		})
 	})
 
-	r.Get("/time", ReadTime(db))
-
 	log.Fatal(http.ListenAndServe(":8080", r))
-}
-
-//ReadTime ...
-func ReadTime(db *Database) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var timeSlice []string
-
-		db.mu.RLock()
-		for _, t := range db.Time {
-			timeSlice = append(timeSlice, t.Format(time.Stamp))
-		}
-		db.mu.RUnlock()
-
-		for i, v := range timeSlice {
-			fmt.Printf("time %d : %s\n", i, v)
-		}
-	}
 }
 
 func getenv(key, fallback string) string {
@@ -164,8 +153,11 @@ func convertToResponse(books Book) BookResponse {
 	}
 }
 
-//New constructor that return database
-func New() (*Database, error) {
+func newCache() *cache {
+	return &cache{Items: make(map[int]Book)}
+}
+
+func newDB() (*Database, error) {
 	var err error
 
 	psqlInfo := fmt.Sprintf(`host=%s port=%s user=%s
@@ -342,8 +334,35 @@ func ReadBooks(d Database) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+//Get gets book by id
+func (c *cache) Get(id int) (Book, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	bk, ok := c.Items[id]
+	if !ok {
+		return bk, false
+	}
+
+	return bk, true
+}
+
+//Set sets book with id
+func (c *cache) Set(id int, book *Book) {
+	c.mu.Lock()
+	c.Items[id] = *book
+	c.mu.Unlock()
+}
+
+//Remove removes book by id
+func (c *cache) Remove(id int) {
+	c.mu.Lock()
+	delete(c.Items, id)
+	c.mu.Unlock()
+}
+
 //ReadBook ...
-func ReadBook(d Database) func(w http.ResponseWriter, r *http.Request) {
+func ReadBook(d Database, c Cache) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := chi.URLParam(r, "id")
 
@@ -358,30 +377,37 @@ func ReadBook(d Database) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		row := d.db.QueryRow("select id, name, author, date, userid from books where id = $1", idInt)
+		cbk, ok := c.Get(idInt)
 
-		bk := Book{}
-		err = row.Scan(&bk.ID, &bk.Name, &bk.Author, &bk.Date, &bk.UserID)
-		switch {
-		case err == sql.ErrNoRows:
-			http.NotFound(w, r)
-			return
-		case err != nil:
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": error scanning db", http.StatusInternalServerError)
-			return
+		if !ok {
+			row := d.db.QueryRow("select id, name, author, date, userid from books where id = $1", idInt)
+
+			bk := Book{}
+			err = row.Scan(&bk.ID, &bk.Name, &bk.Author, &bk.Date, &bk.UserID)
+			switch {
+			case err == sql.ErrNoRows:
+				http.NotFound(w, r)
+				return
+			case err != nil:
+				http.Error(w, http.StatusText(http.StatusInternalServerError)+": error scanning db", http.StatusInternalServerError)
+				return
+			}
+
+			c.Set(idInt, &bk)
 		}
 
-		resp := convertToResponse(bk)
+		resp := convertToResponse(cbk)
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(resp); err != nil {
 			http.Error(w, http.StatusText(http.StatusBadRequest)+": Error marshalling json", http.StatusBadRequest)
 			return
 		}
+
 	}
 }
 
 //UpdateBook ...
-func UpdateBook(d Database) func(w http.ResponseWriter, r *http.Request) {
+func UpdateBook(d Database, c Cache) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, valid := d.CheckAuth(&r.Header)
 		if !valid {
@@ -423,6 +449,8 @@ func UpdateBook(d Database) func(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
+
+		c.Remove(idInt)
 
 		w.Write([]byte(http.StatusText(http.StatusOK) + ": updated book"))
 	}
