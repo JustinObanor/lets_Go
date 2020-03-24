@@ -76,18 +76,18 @@ type CredentialsRequest struct {
 	Password string `json:"password"`
 }
 
-//Cache ...
-type Cache struct {
+type cache struct {
 	// defaultExpiration time.Duration
 
 	mu    sync.RWMutex
 	Items map[int]Book
 }
 
-type Cacher interface {
-	get(int) (Book, bool)
-	set(int, Book)
-	remove(int)
+//Cache interface
+type Cache interface {
+	Get(int) (Book, bool)
+	Set(int, *Book)
+	Remove(int)
 }
 
 //Database ...
@@ -96,13 +96,15 @@ type Database struct {
 }
 
 func main() {
-	r := chi.NewRouter()
-	db, err := New()
+	c := newCache()
+
+	db, err := newDB()
 	if err != nil {
 		log.Fatalf("error connecting to db: %v", err)
 	}
 	defer db.Close()
 
+	r := chi.NewRouter()
 	r.Post("/signup", SignUpUser(*db))
 
 	r.Middlewares()
@@ -113,9 +115,8 @@ func main() {
 		r.Get("/", ReadBooks(*db))
 
 		r.Route("/{id}", func(r chi.Router) {
-			c := NewCache()
-			r.Get("/", ReadBook(*db, *c))
-			r.Put("/", UpdateBook(*db))
+			r.Get("/", ReadBook(*db, c))
+			r.Put("/", UpdateBook(*db, c))
 			r.Delete("/", DeleteBook(*db))
 		})
 	})
@@ -152,13 +153,11 @@ func convertToResponse(books Book) BookResponse {
 	}
 }
 
-//NewCache constructor
-func NewCache() *Cache {
-	return &Cache{Items: make(map[int]Book)}
+func newCache() *cache {
+	return &cache{Items: make(map[int]Book)}
 }
 
-//New constructor that return database
-func New() (*Database, error) {
+func newDB() (*Database, error) {
 	var err error
 
 	psqlInfo := fmt.Sprintf(`host=%s port=%s user=%s
@@ -335,7 +334,8 @@ func ReadBooks(d Database) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (c *Cache) get(id int) (Book, bool) {
+//Get gets book by id
+func (c *cache) Get(id int) (Book, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -347,13 +347,15 @@ func (c *Cache) get(id int) (Book, bool) {
 	return bk, true
 }
 
-func (c *Cache) set(id int, book *Book) {
+//Set sets book with id
+func (c *cache) Set(id int, book *Book) {
 	c.mu.Lock()
 	c.Items[id] = *book
 	c.mu.Unlock()
 }
 
-func (c *Cache) remove(id int) {
+//Remove removes book by id
+func (c *cache) Remove(id int) {
 	c.mu.Lock()
 	delete(c.Items, id)
 	c.mu.Unlock()
@@ -375,7 +377,7 @@ func ReadBook(d Database, c Cache) func(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 
-		cbk, ok := c.get(idInt)
+		cbk, ok := c.Get(idInt)
 
 		if !ok {
 			row := d.db.QueryRow("select id, name, author, date, userid from books where id = $1", idInt)
@@ -391,7 +393,7 @@ func ReadBook(d Database, c Cache) func(w http.ResponseWriter, r *http.Request) 
 				return
 			}
 
-			c.set(idInt, &bk)
+			c.Set(idInt, &bk)
 		}
 
 		resp := convertToResponse(cbk)
@@ -405,7 +407,7 @@ func ReadBook(d Database, c Cache) func(w http.ResponseWriter, r *http.Request) 
 }
 
 //UpdateBook ...
-func UpdateBook(d Database) func(w http.ResponseWriter, r *http.Request) {
+func UpdateBook(d Database, c Cache) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, valid := d.CheckAuth(&r.Header)
 		if !valid {
@@ -448,8 +450,7 @@ func UpdateBook(d Database) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		c := Cache{}
-		c.remove(idInt)
+		c.Remove(idInt)
 
 		w.Write([]byte(http.StatusText(http.StatusOK) + ": updated book"))
 	}
