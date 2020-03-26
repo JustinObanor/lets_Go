@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi"
-	"github.com/go-redis/cache/v7"
-	"github.com/go-redis/redis/v7"
+	"github.com/go-redis/cache"
+	"github.com/go-redis/redis"
 	"github.com/gorilla/sessions"
 	"golang.org/x/crypto/bcrypt"
 
@@ -153,6 +153,7 @@ func newCodec() *object {
 	})
 
 	pong, err := ring.Ping().Result()
+
 	if err != nil {
 		fmt.Println("PING!!!!", pong, err)
 	}
