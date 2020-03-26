@@ -10,11 +10,13 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/go-chi/chi"
+	"github.com/go-redis/cache/v7"
+	"github.com/go-redis/redis/v7"
 	"github.com/gorilla/sessions"
+	"github.com/vmihailenco/msgpack/v4"
 	"golang.org/x/crypto/bcrypt"
 
 	_ "github.com/lib/pq"
@@ -22,10 +24,6 @@ import (
 
 const (
 	cost = 12
-
-	// NoExpiration time.Duration = -1
-
-	// DefaultExpiration time.Duration = 0
 )
 
 var host = getenv("PSQL_HOST", "localhost")
@@ -76,18 +74,15 @@ type CredentialsRequest struct {
 	Password string `json:"password"`
 }
 
-type cache struct {
-	// defaultExpiration time.Duration
-
-	mu    sync.RWMutex
-	Items map[int]Book
+type object struct {
+	Items Book
 }
 
 //Cache interface
 type Cache interface {
-	Get(int) (Book, bool)
-	Set(int, *Book)
-	Remove(int)
+	Get(string) (Book, error)
+	Set(string, *Book)
+	Remove(string)
 }
 
 //Database ...
@@ -96,7 +91,7 @@ type Database struct {
 }
 
 func main() {
-	c := newCache()
+	c := newCodec()
 
 	db, err := newDB()
 	if err != nil {
@@ -115,9 +110,9 @@ func main() {
 		r.Get("/", ReadBooks(*db))
 
 		r.Route("/{id}", func(r chi.Router) {
-			r.Get("/", ReadBook(*db, c))
-			r.Put("/", UpdateBook(*db, c))
-			r.Delete("/", DeleteBook(*db))
+			r.Get("/", ReadBook(*db, *c))
+			r.Put("/", UpdateBook(*db, *c))
+			r.Delete("/", DeleteBook(*db, *c))
 		})
 	})
 
@@ -153,8 +148,25 @@ func convertToResponse(books Book) BookResponse {
 	}
 }
 
-func newCache() *cache {
-	return &cache{Items: make(map[int]Book)}
+func newCodec() *cache.Codec {
+	ring := redis.NewClusterClient(&redis.ClusterOptions{
+		Addrs: []string{"localhost:8080"},
+	})
+
+	pong, err := ring.Ping().Result()
+	if err != nil {
+		fmt.Println(pong, err)
+	}
+	return &cache.Codec{
+		Redis: ring,
+
+		Marshal: func(v interface{}) ([]byte, error) {
+			return msgpack.Marshal(v)
+		},
+		Unmarshal: func(b []byte, v interface{}) error {
+			return msgpack.Unmarshal(b, v)
+		},
+	}
 }
 
 func newDB() (*Database, error) {
@@ -334,35 +346,8 @@ func ReadBooks(d Database) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-//Get gets book by id
-func (c *cache) Get(id int) (Book, bool) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	bk, ok := c.Items[id]
-	if !ok {
-		return bk, false
-	}
-
-	return bk, true
-}
-
-//Set sets book with id
-func (c *cache) Set(id int, book *Book) {
-	c.mu.Lock()
-	c.Items[id] = *book
-	c.mu.Unlock()
-}
-
-//Remove removes book by id
-func (c *cache) Remove(id int) {
-	c.mu.Lock()
-	delete(c.Items, id)
-	c.mu.Unlock()
-}
-
 //ReadBook ...
-func ReadBook(d Database, c Cache) func(w http.ResponseWriter, r *http.Request) {
+func ReadBook(d Database, c cache.Codec) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := chi.URLParam(r, "id")
 
@@ -377,12 +362,11 @@ func ReadBook(d Database, c Cache) func(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 
-		cbk, ok := c.Get(idInt)
+		var bk Book
+		if err := c.Get(id, &bk); err != nil {
 
-		if !ok {
 			row := d.db.QueryRow("select id, name, author, date, userid from books where id = $1", idInt)
 
-			bk := Book{}
 			err = row.Scan(&bk.ID, &bk.Name, &bk.Author, &bk.Date, &bk.UserID)
 			switch {
 			case err == sql.ErrNoRows:
@@ -393,10 +377,14 @@ func ReadBook(d Database, c Cache) func(w http.ResponseWriter, r *http.Request) 
 				return
 			}
 
-			c.Set(idInt, &bk)
+			c.Set(&cache.Item{
+				Key:        id,
+				Object:     bk,
+				Expiration: time.Hour,
+			})
 		}
 
-		resp := convertToResponse(cbk)
+		resp := convertToResponse(bk)
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(resp); err != nil {
 			http.Error(w, http.StatusText(http.StatusBadRequest)+": Error marshalling json", http.StatusBadRequest)
@@ -407,7 +395,7 @@ func ReadBook(d Database, c Cache) func(w http.ResponseWriter, r *http.Request) 
 }
 
 //UpdateBook ...
-func UpdateBook(d Database, c Cache) func(w http.ResponseWriter, r *http.Request) {
+func UpdateBook(d Database, c cache.Codec) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, valid := d.CheckAuth(&r.Header)
 		if !valid {
@@ -450,14 +438,16 @@ func UpdateBook(d Database, c Cache) func(w http.ResponseWriter, r *http.Request
 			return
 		}
 
-		c.Remove(idInt)
+		if err := c.Delete(id); err != nil {
+			return
+		}
 
 		w.Write([]byte(http.StatusText(http.StatusOK) + ": updated book"))
 	}
 }
 
 //DeleteBook ...
-func DeleteBook(d Database) func(w http.ResponseWriter, r *http.Request) {
+func DeleteBook(d Database, c cache.Codec) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, valid := d.CheckAuth(&r.Header)
 		if !valid {
@@ -499,6 +489,11 @@ func DeleteBook(d Database) func(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not delete book", http.StatusInternalServerError)
 			return
 		}
+
+		if err := c.Delete(id); err != nil {
+			return
+		}
+
 		w.Write([]byte(http.StatusText(http.StatusOK) + ": deleted book"))
 	}
 }
