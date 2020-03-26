@@ -79,7 +79,6 @@ type Database struct {
 }
 
 type object struct {
-	Item  Book
 	Codec *cache.Codec
 }
 
@@ -342,7 +341,7 @@ func ReadBooks(d Database) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (o *object) Get(id string) (Book, error) {
+func (*object) Get(id string) (Book, error) {
 	c := newCodec()
 	var bk Book
 	if err := c.Codec.Get(id, &bk); err != nil {
