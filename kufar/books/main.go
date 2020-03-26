@@ -16,7 +16,6 @@ import (
 	"github.com/go-redis/cache/v7"
 	"github.com/go-redis/redis/v7"
 	"github.com/gorilla/sessions"
-	"github.com/vmihailenco/msgpack/v4"
 	"golang.org/x/crypto/bcrypt"
 
 	_ "github.com/lib/pq"
@@ -35,6 +34,8 @@ var dbname = getenv("PSQL_DB_NAME", "book")
 var location, _ = time.LoadLocation("Europe/Minsk")
 
 var store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
+
+var c cache.Codec
 
 //Book ...
 type Book struct {
@@ -78,6 +79,15 @@ type CredentialsRequest struct {
 type Database struct {
 	db *sql.DB
 }
+
+//Cache interface
+type Cache interface {
+	Get(string) (Book, error)
+	Set(string, *Book)
+	Remove(string)
+}
+
+type codec cache.Codec
 
 func main() {
 	c := newCodec()
@@ -137,7 +147,7 @@ func convertToResponse(books Book) BookResponse {
 	}
 }
 
-func newCodec() *cache.Codec {
+func newCodec() *codec {
 	ring := redis.NewClusterClient(&redis.ClusterOptions{
 		Addrs: []string{"localhost:8080"},
 	})
@@ -146,15 +156,8 @@ func newCodec() *cache.Codec {
 	if err != nil {
 		fmt.Println(pong, err)
 	}
-	return &cache.Codec{
+	return &codec{
 		Redis: ring,
-
-		Marshal: func(v interface{}) ([]byte, error) {
-			return msgpack.Marshal(v)
-		},
-		Unmarshal: func(b []byte, v interface{}) error {
-			return msgpack.Unmarshal(b, v)
-		},
 	}
 }
 
@@ -335,8 +338,30 @@ func ReadBooks(d Database) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (codec) Get(id string) (Book, error) {
+	var bk Book
+	if err := c.Get(id, &bk); err != nil {
+		return bk, err
+	}
+	return bk, nil
+}
+
+func (codec) Set(id string, bk *Book) {
+	c.Set(&cache.Item{
+		Key:        id,
+		Object:     bk,
+		Expiration: time.Hour,
+	})
+}
+
+func (codec) Remove(id string){
+	if err := c.Delete(id); err != nil {
+		return
+	}
+}
+
 //ReadBook ...
-func ReadBook(d Database, c cache.Codec) func(w http.ResponseWriter, r *http.Request) {
+func ReadBook(d Database, c Cache) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := chi.URLParam(r, "id")
 
@@ -352,7 +377,8 @@ func ReadBook(d Database, c cache.Codec) func(w http.ResponseWriter, r *http.Req
 		}
 
 		var bk Book
-		if err := c.Get(id, &bk); err != nil {
+
+		if bk, err = c.Get(id); err != nil {
 
 			row := d.db.QueryRow("select id, name, author, date, userid from books where id = $1", idInt)
 
@@ -366,11 +392,7 @@ func ReadBook(d Database, c cache.Codec) func(w http.ResponseWriter, r *http.Req
 				return
 			}
 
-			c.Set(&cache.Item{
-				Key:        id,
-				Object:     bk,
-				Expiration: time.Hour,
-			})
+			c.Set(id, &bk)
 		}
 
 		resp := convertToResponse(bk)
@@ -384,7 +406,7 @@ func ReadBook(d Database, c cache.Codec) func(w http.ResponseWriter, r *http.Req
 }
 
 //UpdateBook ...
-func UpdateBook(d Database, c cache.Codec) func(w http.ResponseWriter, r *http.Request) {
+func UpdateBook(d Database, c Cache) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, valid := d.CheckAuth(&r.Header)
 		if !valid {
@@ -427,16 +449,14 @@ func UpdateBook(d Database, c cache.Codec) func(w http.ResponseWriter, r *http.R
 			return
 		}
 
-		if err := c.Delete(id); err != nil {
-			return
-		}
+		c.Remove(id)
 
 		w.Write([]byte(http.StatusText(http.StatusOK) + ": updated book"))
 	}
 }
 
 //DeleteBook ...
-func DeleteBook(d Database, c cache.Codec) func(w http.ResponseWriter, r *http.Request) {
+func DeleteBook(d Database, c Cache) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, valid := d.CheckAuth(&r.Header)
 		if !valid {
@@ -479,9 +499,7 @@ func DeleteBook(d Database, c cache.Codec) func(w http.ResponseWriter, r *http.R
 			return
 		}
 
-		if err := c.Delete(id); err != nil {
-			return
-		}
+		c.Remove(id)
 
 		w.Write([]byte(http.StatusText(http.StatusOK) + ": deleted book"))
 	}
