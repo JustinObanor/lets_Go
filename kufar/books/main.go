@@ -35,8 +35,6 @@ var location, _ = time.LoadLocation("Europe/Minsk")
 
 var store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
 
-var c cache.Codec
-
 //Book ...
 type Book struct {
 	ID     int
@@ -80,14 +78,17 @@ type Database struct {
 	db *sql.DB
 }
 
+type object struct {
+	Item  Book
+	Codec *cache.Codec
+}
+
 //Cache interface
 type Cache interface {
 	Get(string) (Book, error)
 	Set(string, *Book)
-	Remove(string)
+	Remove(string) error
 }
-
-type codec cache.Codec
 
 func main() {
 	c := newCodec()
@@ -109,9 +110,9 @@ func main() {
 		r.Get("/", ReadBooks(*db))
 
 		r.Route("/{id}", func(r chi.Router) {
-			r.Get("/", ReadBook(*db, *c))
-			r.Put("/", UpdateBook(*db, *c))
-			r.Delete("/", DeleteBook(*db, *c))
+			r.Get("/", ReadBook(*db, c))
+			r.Put("/", UpdateBook(*db, c))
+			r.Delete("/", DeleteBook(*db, c))
 		})
 	})
 
@@ -147,17 +148,20 @@ func convertToResponse(books Book) BookResponse {
 	}
 }
 
-func newCodec() *codec {
+func newCodec() *object {
 	ring := redis.NewClusterClient(&redis.ClusterOptions{
 		Addrs: []string{"localhost:8080"},
 	})
 
 	pong, err := ring.Ping().Result()
 	if err != nil {
-		fmt.Println(pong, err)
+		fmt.Println("PING!!!!", pong, err)
 	}
-	return &codec{
-		Redis: ring,
+
+	return &object{
+		Codec: &cache.Codec{
+			Redis: ring,
+		},
 	}
 }
 
@@ -338,26 +342,32 @@ func ReadBooks(d Database) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (codec) Get(id string) (Book, error) {
+func (o *object) Get(id string) (Book, error) {
+	c := newCodec()
 	var bk Book
-	if err := c.Get(id, &bk); err != nil {
+	if err := c.Codec.Get(id, &bk); err != nil {
 		return bk, err
 	}
 	return bk, nil
 }
 
-func (codec) Set(id string, bk *Book) {
-	c.Set(&cache.Item{
-		Key:        id,
-		Object:     bk,
-		Expiration: time.Hour,
+func (*object) Set(id string, bk *Book) {
+	c := newCodec()
+
+	c.Codec.Set(&cache.Item{
+		Key:    id,
+		Object: bk,
 	})
+
 }
 
-func (codec) Remove(id string){
-	if err := c.Delete(id); err != nil {
-		return
+func (*object) Remove(id string) error {
+	c := newCodec()
+
+	if err := c.Codec.Delete(id); err != nil {
+		return err
 	}
+	return nil
 }
 
 //ReadBook ...
@@ -378,8 +388,8 @@ func ReadBook(d Database, c Cache) func(w http.ResponseWriter, r *http.Request) 
 
 		var bk Book
 
-		if bk, err = c.Get(id); err != nil {
-
+		bk, err = c.Get(id)
+		if err != nil {
 			row := d.db.QueryRow("select id, name, author, date, userid from books where id = $1", idInt)
 
 			err = row.Scan(&bk.ID, &bk.Name, &bk.Author, &bk.Date, &bk.UserID)
@@ -391,7 +401,6 @@ func ReadBook(d Database, c Cache) func(w http.ResponseWriter, r *http.Request) 
 				http.Error(w, http.StatusText(http.StatusInternalServerError)+": error scanning db", http.StatusInternalServerError)
 				return
 			}
-
 			c.Set(id, &bk)
 		}
 
@@ -449,7 +458,9 @@ func UpdateBook(d Database, c Cache) func(w http.ResponseWriter, r *http.Request
 			return
 		}
 
-		c.Remove(id)
+		if err := c.Remove(id); err != nil {
+			return
+		}
 
 		w.Write([]byte(http.StatusText(http.StatusOK) + ": updated book"))
 	}
@@ -499,7 +510,9 @@ func DeleteBook(d Database, c Cache) func(w http.ResponseWriter, r *http.Request
 			return
 		}
 
-		c.Remove(id)
+		if err := c.Remove(id); err != nil {
+			return
+		}
 
 		w.Write([]byte(http.StatusText(http.StatusOK) + ": deleted book"))
 	}
