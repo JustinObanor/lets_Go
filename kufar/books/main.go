@@ -74,17 +74,6 @@ type CredentialsRequest struct {
 	Password string `json:"password"`
 }
 
-type object struct {
-	Items Book
-}
-
-//Cache interface
-type Cache interface {
-	Get(string) (Book, error)
-	Set(string, *Book)
-	Remove(string)
-}
-
 //Database ...
 type Database struct {
 	db *sql.DB
