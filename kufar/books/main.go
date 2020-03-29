@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/go-chi/chi"
-	"github.com/go-redis/cache"
 	"github.com/go-redis/redis"
 	"github.com/gorilla/sessions"
 	"golang.org/x/crypto/bcrypt"
@@ -78,19 +77,19 @@ type Database struct {
 	db *sql.DB
 }
 
-type object struct {
-	Codec *cache.Codec
+type rediscache struct {
+	redis *redis.Client
 }
 
 //Cache interface
 type Cache interface {
 	Get(string) (Book, error)
-	Set(string, *Book)
+	Set(string, *Book) error
 	Remove(string) error
 }
 
 func main() {
-	c := newCodec()
+	c := newClient()
 
 	db, err := newDB()
 	if err != nil {
@@ -147,21 +146,20 @@ func convertToResponse(books Book) BookResponse {
 	}
 }
 
-func newCodec() *object {
-	ring := redis.NewClusterClient(&redis.ClusterOptions{
-		Addrs: []string{"localhost:8080"},
+func newClient() *rediscache {
+	client := redis.NewClient(&redis.Options{
+		Addr:     "165.227.151.146:6379",
+		Password: "7UY2dsFnaNxrhpTH5ZKQtCMq4AZrr4uR",
 	})
 
-	pong, err := ring.Ping().Result()
+	pong, err := client.Ping().Result()
 
 	if err != nil {
 		fmt.Println("PING!!!!", pong, err)
 	}
 
-	return &object{
-		Codec: &cache.Codec{
-			Redis: ring,
-		},
+	return &rediscache{
+		redis: client,
 	}
 }
 
@@ -342,31 +340,44 @@ func ReadBooks(d Database) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (*object) Get(id string) (Book, error) {
-	c := newCodec()
+func (*rediscache) Get(id string) (Book, error) {
+	c := newClient()
+
 	var bk Book
-	if err := c.Codec.Get(id, &bk); err != nil {
+	val, err := c.redis.Get(id).Result()
+	if err == redis.Nil || err != nil {
 		return bk, err
 	}
+
+	if err := json.Unmarshal([]byte(val), &bk); err != nil {
+		return bk, err
+	}
+
 	return bk, nil
 }
 
-func (*object) Set(id string, bk *Book) {
-	c := newCodec()
+func (*rediscache) Set(id string, bk *Book) error {
+	c := newClient()
 
-	c.Codec.Set(&cache.Item{
-		Key:    id,
-		Object: bk,
-	})
-
-}
-
-func (*object) Remove(id string) error {
-	c := newCodec()
-
-	if err := c.Codec.Delete(id); err != nil {
+	b, err := json.Marshal(&bk)
+	if err != nil {
 		return err
 	}
+
+	if err := c.redis.Set(id, string(b), time.Hour).Err(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (*rediscache) Remove(id string) error {
+	c := newClient()
+
+	if err := c.redis.Del(id).Err(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -386,9 +397,8 @@ func ReadBook(d Database, c Cache) func(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 
-		var bk Book
+		bk, err := c.Get(id)
 
-		bk, err = c.Get(id)
 		if err != nil {
 			row := d.db.QueryRow("select id, name, author, date, userid from books where id = $1", idInt)
 
