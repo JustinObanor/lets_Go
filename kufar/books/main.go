@@ -89,7 +89,10 @@ type Cache interface {
 }
 
 func main() {
-	c := newClient()
+	c, err := newRedisCacheClient()
+	if err != nil{
+		log.Fatalf("error connecting to redis: %v", err)
+	}
 
 	db, err := newDB()
 	if err != nil {
@@ -146,21 +149,22 @@ func convertToResponse(books Book) BookResponse {
 	}
 }
 
-func newClient() *rediscache {
+// newRedisCacheClient ...
+func newRedisCacheClient() (*rediscache, error) {
 	client := redis.NewClient(&redis.Options{
-		Addr:     "165.227.151.146:6379",
-		Password: "7UY2dsFnaNxrhpTH5ZKQtCMq4AZrr4uR",
+		Addr:     os.Getenv("Addr"),
+		Password: os.Getenv("Password"),
 	})
 
-	pong, err := client.Ping().Result()
-
+	_, err := client.Ping().Result()
 	if err != nil {
-		fmt.Println("PING!!!!", pong, err)
+		return nil, err
 	}
+	log.Println("You connected!!!!")
 
 	return &rediscache{
 		redis: client,
-	}
+	}, nil
 }
 
 func newDB() (*Database, error) {
@@ -340,11 +344,9 @@ func ReadBooks(d Database) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (*rediscache) Get(id string) (Book, error) {
-	c := newClient()
-
+func (r *rediscache) Get(id string) (Book, error) {
 	var bk Book
-	val, err := c.redis.Get(id).Result()
+	val, err := r.redis.Get(id).Result()
 	if err == redis.Nil || err != nil {
 		return bk, err
 	}
@@ -356,29 +358,17 @@ func (*rediscache) Get(id string) (Book, error) {
 	return bk, nil
 }
 
-func (*rediscache) Set(id string, bk *Book) error {
-	c := newClient()
-
+func (r *rediscache) Set(id string, bk *Book) error {
 	b, err := json.Marshal(&bk)
 	if err != nil {
 		return err
 	}
 
-	if err := c.redis.Set(id, string(b), time.Hour).Err(); err != nil {
-		return err
-	}
-
-	return nil
+	return r.redis.Set(id, string(b), time.Hour).Err()
 }
 
-func (*rediscache) Remove(id string) error {
-	c := newClient()
-
-	if err := c.redis.Del(id).Err(); err != nil {
-		return err
-	}
-
-	return nil
+func (r *rediscache) Remove(id string) error {
+	return r.redis.Del(id).Err()
 }
 
 //ReadBook ...
