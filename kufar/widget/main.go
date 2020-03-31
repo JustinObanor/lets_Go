@@ -14,6 +14,7 @@ type widget struct {
 }
 
 var n = flag.Int("n", 1, "how many widgets produced by producer")
+var d = flag.Int64("d", 1000, "a consumer taking a while to process a widget")
 
 func main() {
 	c := make(chan widget)
@@ -25,6 +26,11 @@ func main() {
 		go func(num int) {
 			defer wg.Done()
 			c <- widget{label: "widget_" + strconv.Itoa(num), time: time.Now()}
+
+			tick := time.NewTicker(time.Millisecond * time.Duration(*d))
+			for range tick.C{
+				c <- widget{label: "widget_" + strconv.Itoa(num), time: time.Now()}
+			}
 		}(i)
 	}
 
@@ -40,5 +46,4 @@ func consumer(c chan widget) {
 	for elem := range c {
 		fmt.Printf("[%s  %v]\n", elem.label, elem.time.Format("15: 04: 05.0000"))
 	}
-	// close(c)
 }
