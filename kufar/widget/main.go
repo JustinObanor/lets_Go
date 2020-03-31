@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -16,23 +17,28 @@ var n = flag.Int("n", 1, "how many widgets produced by producer")
 
 func main() {
 	c := make(chan widget)
-
+	var wg sync.WaitGroup
 	flag.Parse()
 
-	for i := 0; i < *n; i++ {
-		time.Sleep(time.Second)
+	for i := 1; i <= *n; i++ {
+		wg.Add(1)
 		go func(num int) {
-			c <- widget{"widget_" + strconv.Itoa(num), time.Now()}
+			defer wg.Done()
+			c <- widget{label: "widget_" + strconv.Itoa(num), time: time.Now()}
 		}(i)
 	}
+
+	go func(){
+		wg.Wait()
+		close(c)
+	}()
 
 	consumer(c)
 }
 
 func consumer(c chan widget) {
-	for i := 0; i < *n; i++ {
-		res := <-c
-		fmt.Printf("[%s  %v]\n", res.label, res.time.Format("15: 04: 05.0000"))
+	for elem := range c {
+		fmt.Printf("[%s  %v]\n", elem.label, elem.time.Format("15: 04: 05.0000"))
 	}
-
+	// close(c)
 }
