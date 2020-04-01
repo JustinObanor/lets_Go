@@ -2,18 +2,20 @@ package main
 
 import (
 	"fmt"
-	"time"
+	"sync"
 )
 
-var location *time.Location
-
 func main() {
-	now := time.Now().UTC()
-	fmt.Println(now)
-	//12:35:09.331984 +0000 UTC
 
-	location, _ := time.LoadLocation("Europe/Minsk")
-
-	now3 := time.Now().UTC().In(location).Format(time.RFC1123)
-	fmt.Println(now3)
+	var wg sync.WaitGroup
+	wg.Add(11)
+	for i := 0; i <= 10; i++ {
+		
+		go func(i int) {
+			defer wg.Done()
+			fmt.Printf("loop i is - %d\n", i)
+		}(i)
+	}
+	wg.Wait()
+	fmt.Println("Hello, Welcome to Go")
 }

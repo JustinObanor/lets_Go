@@ -13,41 +13,42 @@ type widget struct {
 	time  time.Time
 }
 
-var n = flag.Int("n", 1, "how many widgets produced by producer")
-var con = flag.Int("c", 1, "how many widgets consumed by consumer")
-var d = flag.Int64("d", 1000, "a consumer taking a while to process a widget")
+var wid = flag.Int("w", 1, "how many widgets produced by producer")
+var con = flag.Int("c", 1, "widgets consumed")
+var dur = flag.Duration("d", time.Second, "a consumer taking a while to process a widget")
 
 func main() {
 	c := make(chan widget)
 	var wg sync.WaitGroup
 	flag.Parse()
 
-	for i := 0 ; i <= *n; i++ {
-		wg.Add(1)
-		go func(num int) {
-			defer wg.Done()
-			c <- widget{label: "widget_" + strconv.Itoa(num), time: time.Now()}
-
-			tick := time.NewTicker(time.Millisecond * time.Duration(*d))
-			for range tick.C {
-				c <- widget{label: "widget_" + strconv.Itoa(num), time: time.Now()}
-			}
-		}(i)
-	}
-
-	go func() {
-		wg.Wait()
-		close(c)
-	}()
 
 	for i := 0; i <= *con; i++ {
-		wg.Add(1)
-		go func(num int){
-			defer wg.Done()
-			consumer(c, num)
-		}(i)
+		 consumer(c, i)
 	}
+
+	ticker := time.NewTicker(*dur)
+	var tickCounter int
+
+	wg.Add(*wid)
+
+	for i := 0 ; i <= *wid; i++ {
+		if tickCounter >= *wid{
+			ticker.Stop()
+			return
+		}
+
+		go func(num int) {
+			for range ticker.C {
+				c <- widget{label: "widget_" + strconv.Itoa(num), time: time.Now()}
+			}
+		}(tickCounter)
+		tickCounter++
+	}
+
+
 	wg.Wait()
+	close(c)
 }
 
 func consumer(c chan widget, con int) {
