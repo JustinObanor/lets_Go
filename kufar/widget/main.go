@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
+	"runtime"
 	"strconv"
 	"sync"
 	"time"
@@ -22,37 +24,44 @@ func main() {
 	var wg sync.WaitGroup
 	flag.Parse()
 
-
+	wg.Add(*con)
 	for i := 0; i <= *con; i++ {
-		 consumer(c, i)
+		go consumer(context.Background(), c, &wg, i)
 	}
 
+	runtime.NumGoroutine()
 	ticker := time.NewTicker(*dur)
 	var tickCounter int
 
 	wg.Add(*wid)
-
-	for i := 0 ; i <= *wid; i++ {
-		if tickCounter >= *wid{
+	for range ticker.C {
+		if tickCounter >= *wid {
 			ticker.Stop()
-			return
+			break
 		}
 
 		go func(num int) {
-			for range ticker.C {
-				c <- widget{label: "widget_" + strconv.Itoa(num), time: time.Now()}
-			}
+			c <- widget{label: "widget_" + strconv.Itoa(num), time: time.Now()}
+			wg.Done()
 		}(tickCounter)
+
 		tickCounter++
 	}
 
-
-	wg.Wait()
-	close(c)
+	go func() {
+		wg.Wait()
+		close(c)
+	}()
 }
 
-func consumer(c chan widget, con int) {
-	for elem := range c {
-		fmt.Printf("[%s  %v] consumer_%d\n", elem.label, elem.time.Format("15: 04: 05.0000"), con)
+func consumer(ctx context.Context, c chan widget, wg *sync.WaitGroup, con int) {
+	for {
+		select {
+		case <-ctx.Done():
+			wg.Done()
+			break
+		case elem := <-c:
+			fmt.Printf("[%s  %v] consumer_%d\n", elem.label, elem.time.Format("15: 04: 05.0000"), con)
+		}
 	}
 }
