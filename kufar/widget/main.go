@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"runtime"
 	"strconv"
 	"sync"
 	"time"
@@ -29,7 +28,6 @@ func main() {
 		go consumer(context.Background(), c, &wg, i)
 	}
 
-	runtime.NumGoroutine()
 	ticker := time.NewTicker(*dur)
 	var tickCounter int
 
