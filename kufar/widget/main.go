@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"strconv"
@@ -15,23 +14,24 @@ type widget struct {
 }
 
 var wid = flag.Int("w", 1, "how many widgets produced by producer")
-var con = flag.Int("c", 1, "widgets consumed")
+var con = flag.Int("c", 1, "number of consumers")
 var dur = flag.Duration("d", time.Second, "a consumer taking a while to process a widget")
 
 func main() {
 	c := make(chan widget)
-	var wg sync.WaitGroup
+	var cwg sync.WaitGroup
+	var pwg sync.WaitGroup
 	flag.Parse()
 
-	wg.Add(*con)
+	cwg.Add(*con)
 	for i := 0; i <= *con; i++ {
-		go consumer(context.Background(), c, &wg, i)
+		go consumer(c, i, &cwg)
 	}
 
 	ticker := time.NewTicker(*dur)
 	var tickCounter int
 
-	wg.Add(*wid)
+	pwg.Add(*wid)
 	for range ticker.C {
 		if tickCounter >= *wid {
 			ticker.Stop()
@@ -40,26 +40,21 @@ func main() {
 
 		go func(num int) {
 			c <- widget{label: "widget_" + strconv.Itoa(num), time: time.Now()}
-			wg.Done()
+			pwg.Done()
 		}(tickCounter)
 
 		tickCounter++
 	}
 
 	go func() {
-		wg.Wait()
+		cwg.Wait()
 		close(c)
 	}()
 }
 
-func consumer(ctx context.Context, c chan widget, wg *sync.WaitGroup, con int) {
-	for {
-		select {
-		case <-ctx.Done():
-			wg.Done()
-			break
-		case elem := <-c:
-			fmt.Printf("[%s  %v] consumer_%d\n", elem.label, elem.time.Format("15: 04: 05.0000"), con)
-		}
+func consumer(c <-chan widget, con int, cwg *sync.WaitGroup) {
+	for elem := range c {
+		fmt.Printf("[%s  %v] consumer_%d\n", elem.label, elem.time.Format("15: 04: 05.0000"), con)
 	}
+	cwg.Done()
 }
