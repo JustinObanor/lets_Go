@@ -19,9 +19,9 @@ func countWords(text string) map[string]int {
 			}
 			runeCount++
 			continue
-		}
+		} 
 
-		if runeCount > 12 {
+		if runeCount > 4 {
 			word := text[wordBegPos:i]
 			count := wordCounts[word] // return 0 if word is not in wordCounts
 			count++
