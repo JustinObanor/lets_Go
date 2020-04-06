@@ -46,10 +46,8 @@ func main() {
 		tickCounter++
 	}
 
-	go func() {
-		cwg.Wait()
-		close(c)
-	}()
+	close(c)
+	cwg.Wait()
 }
 
 func consumer(c <-chan widget, con int, cwg *sync.WaitGroup) {
