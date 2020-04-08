@@ -20,13 +20,6 @@ const (
 var wg sync.WaitGroup
 var totalWords = make(map[string]int)
 
-type elem struct {
-	word  string
-	count int
-}
-
-type elemHeap []elem
-
 func countWords(text string) map[string]int {
 	wordCounts := make(map[string]int)
 
@@ -103,6 +96,13 @@ func main() {
 
 	wg.Wait()
 }
+
+// type elem struct {
+// 	word  string
+// 	count int
+// }
+
+// type elemHeap []elem
 
 // func (h elemHeap) Len() int           { return len(h) }
 // func (h elemHeap) Less(i, j int) bool { return h[i].count < h[j].count }
