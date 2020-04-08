@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -11,10 +12,13 @@ import (
 )
 
 const (
-	urlBase = "https://tools.ietf.org/rfc/rfc%d.txt"
-	nLow    = 1
-	nHigh   = 100
-	workers = 10
+	urlPrefix = "https://tools.ietf.org/rfc/rfc"
+	urlSuffix = ".txt"
+	lenPrefix = len(urlPrefix)
+	lenSuffix = len(urlSuffix)
+	nLow      = 1
+	nHigh     = 100
+	workers   = 10
 )
 
 var wg sync.WaitGroup
@@ -37,7 +41,7 @@ func countWords(text string) map[string]int {
 
 func accumulateWords(wordCounts map[string]int) {
 	for key, value := range wordCounts {
-		totalWords[key] = totalWords[key] + value
+		totalWords[key] += value
 	}
 }
 
@@ -57,26 +61,26 @@ func scraper(url string) (map[string]int, error) {
 		return nil, err
 	}
 
-	accumulateWords(countWords(string(b)))
-
-	return totalWords, nil
+	return countWords(string(b)), nil
 }
 
 func main() {
-	jobs := make(chan string)
+	jobs := make(chan string, nHigh)
+	results := make(chan map[string]int, nHigh)
 
-	wg.Add(1)
-	go func() {
-		var b strings.Builder
-		for i := nLow; i <= nHigh; i++ {
-			fmt.Fprintf(&b, urlBase, i)
-		}
-		jobs <- b.String()
-
-		close(jobs)
-		wg.Done()
-	}()
-
+	wg.Add(workers)
+	for i := 0; i < workers; i++ {
+		go func() {
+			for r := range results {
+				accumulateWords(r)
+			}
+			for k, v := range totalWords {
+				fmt.Printf("%s : %d", k, v)
+			}
+			wg.Done()
+		}()
+	}
+	
 	wg.Add(workers)
 	for i := 0; i < workers; i++ {
 		go func() {
@@ -85,14 +89,27 @@ func main() {
 				if err != nil {
 					fmt.Println(err)
 				}
-
-				for k, v := range data {
-					fmt.Printf("%s : %d\n", k, v)
-				}
+				results <- data
 			}
 			wg.Done()
 		}()
 	}
+
+	go func() {
+		var b strings.Builder
+		for i := nLow; i <= nHigh; i++ {
+			b.Grow(lenPrefix + 3 + lenSuffix)
+
+			b.WriteString(urlPrefix)
+			b.WriteString(strconv.Itoa(i))
+			b.WriteString(urlSuffix)
+
+			jobs <- b.String()
+
+			b.Reset()
+		}
+		close(jobs)
+	}()
 
 	wg.Wait()
 }
