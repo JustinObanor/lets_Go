@@ -46,7 +46,7 @@ func scraper(url string) (map[string]int, error) {
 		Timeout: 5 * time.Second,
 	}
 
-	resp, err := client.Get(urlBase)
+	resp, err := client.Get(url)
 	if err != nil {
 		return nil, err
 	}
