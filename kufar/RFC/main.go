@@ -17,22 +17,23 @@ const (
 	lenPrefix = len(urlPrefix)
 	lenSuffix = len(urlSuffix)
 	nLow      = 1
-	nHigh     = 1000
+	nHigh     = 2
 	workers   = 10
 )
 
-var wg sync.WaitGroup
+var jwg sync.WaitGroup
+var awg sync.WaitGroup
 var totalWords = make(map[string]int)
 
 func countWords(text string) map[string]int {
-	wordCounts := make(map[string]int)
+	wordCounts := make(map[string]int, nHigh)
 
 	texts := strings.FieldsFunc(text, func(c rune) bool {
 		return !unicode.IsLetter(c) || unicode.IsNumber(c)
 	})
 
 	for _, word := range texts {
-		if len(word) > 12 {
+		if len(word) > 4 {
 			wordCounts[word]++
 		}
 	}
@@ -68,7 +69,7 @@ func main() {
 	jobs := make(chan string, nHigh)
 	results := make(chan map[string]int, nHigh)
 
-	wg.Add(1)
+	awg.Add(1)
 	go func() {
 		for r := range results {
 			accumulateWords(r)
@@ -76,11 +77,11 @@ func main() {
 				fmt.Printf("%s : %d\n", k, v)
 			}
 		}
+		awg.Done()
 		close(results)
-		wg.Done()
 	}()
 
-	wg.Add(workers)
+	jwg.Add(workers)
 	for i := 0; i < workers; i++ {
 		go func() {
 			for j := range jobs {
@@ -90,7 +91,7 @@ func main() {
 				}
 				results <- data
 			}
-			wg.Done()
+			jwg.Done()
 		}()
 	}
 
@@ -111,7 +112,8 @@ func main() {
 		close(jobs)
 	}()
 
-	wg.Wait()
+	jwg.Wait()
+	
 }
 
 // type elem struct {
