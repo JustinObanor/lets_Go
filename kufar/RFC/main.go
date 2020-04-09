@@ -17,7 +17,7 @@ const (
 	lenPrefix = len(urlPrefix)
 	lenSuffix = len(urlSuffix)
 	nLow      = 1
-	nHigh     = 100
+	nHigh     = 1000
 	workers   = 10
 )
 
@@ -32,7 +32,7 @@ func countWords(text string) map[string]int {
 	})
 
 	for _, word := range texts {
-		if len(word) > 4 {
+		if len(word) > 12 {
 			wordCounts[word]++
 		}
 	}
@@ -68,19 +68,18 @@ func main() {
 	jobs := make(chan string, nHigh)
 	results := make(chan map[string]int, nHigh)
 
-	wg.Add(workers)
-	for i := 0; i < workers; i++ {
-		go func() {
-			for r := range results {
-				accumulateWords(r)
-			}
+	wg.Add(1)
+	go func() {
+		for r := range results {
+			accumulateWords(r)
 			for k, v := range totalWords {
-				fmt.Printf("%s : %d", k, v)
+				fmt.Printf("%s : %d\n", k, v)
 			}
-			wg.Done()
-		}()
-	}
-	
+		}
+		close(results)
+		wg.Done()
+	}()
+
 	wg.Add(workers)
 	for i := 0; i < workers; i++ {
 		go func() {
@@ -97,6 +96,7 @@ func main() {
 
 	go func() {
 		var b strings.Builder
+
 		for i := nLow; i <= nHigh; i++ {
 			b.Grow(lenPrefix + 3 + lenSuffix)
 
