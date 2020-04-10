@@ -23,6 +23,15 @@ services:
     volumes: 
       - my_go_db:/var/lib/postgresql/data
 
+  redis:
+    image: redis
+    container_name: db_redis
+    environment: 
+      - Addr=165.227.151.146:6379
+      - Password=7UY2dsFnaNxrhpTH5ZKQtCMq4AZrr4uR
+    volumes: 
+      - myredis/conf/redis.conf:/usr/local/etc/redis/redis.conf  
+
 volumes: 
   my_go_db:        
 
