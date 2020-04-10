@@ -24,10 +24,10 @@ const (
 	cost = 12
 )
 
-var host = getenv("PSQL_HOST", "localhost")
+var host = getenv("PSQL_HOST", "db")
 var port = getenv("PSQL_PORT", "5432")
 var user = getenv("PSQL_USER", "postgres")
-var password = getenv("PSQL_PWDcas", "justin1999")
+var password = getenv("PSQL_PWDcas", "postgres")
 var dbname = getenv("PSQL_DB_NAME", "book")
 
 var location, _ = time.LoadLocation("Europe/Minsk")
@@ -89,16 +89,16 @@ type Cache interface {
 }
 
 func main() {
-	c, err := newRedisCacheClient()
-	if err != nil{
-		log.Fatalf("error connecting to redis: %v", err)
-	}
-
 	db, err := newDB()
 	if err != nil {
 		log.Fatalf("error connecting to db: %v", err)
 	}
 	defer db.Close()
+
+	c, err := newRedisCacheClient()
+	if err != nil {
+		log.Fatalf("error connecting to redis: %v", err)
+	}
 
 	r := chi.NewRouter()
 	r.Post("/signup", SignUpUser(*db))
