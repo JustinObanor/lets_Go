@@ -1,9 +1,11 @@
 package main
 
 import (
+	"container/heap"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -17,13 +19,46 @@ const (
 	lenPrefix = len(urlPrefix)
 	lenSuffix = len(urlSuffix)
 	nLow      = 1
-	nHigh     = 2
+	nHigh     = 10
 	workers   = 10
 )
 
 var jwg sync.WaitGroup
 var awg sync.WaitGroup
 var totalWords = make(map[string]int)
+
+type elem struct {
+	word  string
+	count int
+}
+
+type elemHeap []elem
+
+func (h elemHeap) Len() int           { return len(h) }
+func (h elemHeap) Less(i, j int) bool { return h[i].count > h[j].count }
+func (h elemHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
+func (h elemHeap) Push(x interface{}) { /* not used */ }
+func (h *elemHeap) Pop() interface{} {
+	old := *h
+	elm := old[len(old)-1]
+	*h = old[:len(old)-1]
+	return elm
+}
+
+func frequentWords(m map[string]int, nbrWords int) {
+	h := elemHeap(make([]elem, nbrWords))
+	for word, count := range m {
+		h = append(h, elem{word: word, count: count}) 
+		heap.Init(&h)
+		
+		//if count > h[0].count {
+			for i := 0; i < nbrWords; i++ {
+				fmt.Println(heap.Pop(&h))
+			}
+		//}
+	}
+	sort.Slice(h, func(i, j int) bool { return h[i].count > h[j].count })
+}
 
 func countWords(text string) map[string]int {
 	wordCounts := make(map[string]int, nHigh)
@@ -33,7 +68,7 @@ func countWords(text string) map[string]int {
 	})
 
 	for _, word := range texts {
-		if len(word) > 4 {
+		if len(word) > 12 {
 			wordCounts[word]++
 		}
 	}
@@ -73,12 +108,9 @@ func main() {
 	go func() {
 		for r := range results {
 			accumulateWords(r)
-			for k, v := range totalWords {
-				fmt.Printf("%s : %d\n", k, v)
-			}
+			frequentWords(r, 10)
 		}
 		awg.Done()
-		close(results)
 	}()
 
 	jwg.Add(workers)
@@ -113,44 +145,6 @@ func main() {
 	}()
 
 	jwg.Wait()
-	
+	close(results)
+	awg.Wait()
 }
-
-// type elem struct {
-// 	word  string
-// 	count int
-// }
-
-// type elemHeap []elem
-
-// func (h elemHeap) Len() int           { return len(h) }
-// func (h elemHeap) Less(i, j int) bool { return h[i].count < h[j].count }
-// func (h elemHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
-// func (h elemHeap) Push(x interface{}) { /* not used */ }
-// func (h elemHeap) Pop() interface{}   { /* not used */ return nil }
-
-// func frequentWords(m map[string]int, nbrWords int) []elem {
-// 	h := elemHeap(make([]elem, nbrWords))
-// 	for word, count := range m {
-// 		if count > h[0].count {
-// 			h[0] = elem{word: word, count: count}
-// 			heap.Fix(h, 0)
-// 		}
-// 	}
-// 	sort.Slice(h, func(i, j int) bool { return h[i].count > h[j].count })
-// 	return h
-// }
-
-// func write(filename string, data []elem) error {
-// 	f, err := os.OpenFile(filename, os.O_RDONLY|os.O_CREATE, 0666)
-// 	if err != nil {
-// 		return fmt.Errorf("couldnt open file %s", outfile)
-// 	}
-
-// 	w := csv.NewWriter(f)
-// 	w.Flush()
-// 	s := make([]string, len(data))
-// 	for _, v := range data
-// 	//not complete
-// 	return w.Write(data)
-// }
