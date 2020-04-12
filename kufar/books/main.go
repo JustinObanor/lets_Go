@@ -152,7 +152,7 @@ func convertToResponse(books Book) BookResponse {
 // newRedisCacheClient ...
 func newRedisCacheClient() (*rediscache, error) {
 	client := redis.NewClient(&redis.Options{
-		Addr:     os.Getenv("Addr"),
+		Addr:     "db_redis:6379",
 		Password: os.Getenv("Password"),
 	})
 
@@ -160,7 +160,7 @@ func newRedisCacheClient() (*rediscache, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Println("You connected!!!!")
+	log.Println("redis connected")
 
 	return &rediscache{
 		redis: client,
@@ -178,7 +178,7 @@ func newDB() (*Database, error) {
 	if err = db.Ping(); err != nil {
 		return nil, err
 	}
-	log.Println("You connected to your database.")
+	log.Println("postgres connected")
 
 	return &Database{
 		db: db,
