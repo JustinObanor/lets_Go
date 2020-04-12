@@ -47,16 +47,16 @@ func (h *elemHeap) Pop() interface{} {
 
 func frequentWords(m map[string]int, nbrWords int) {
 	h := elemHeap(make([]elem, nbrWords))
+
 	for word, count := range m {
-		h = append(h, elem{word: word, count: count}) 
-		heap.Init(&h)
-		
-		//if count > h[0].count {
-			for i := 0; i < nbrWords; i++ {
-				fmt.Println(heap.Pop(&h))
-			}
-		//}
+		h = append(h, elem{word: word, count: count})
 	}
+	heap.Init(&h)
+
+	for i := 0; i < nbrWords; i++ {
+		fmt.Println(heap.Pop(&h))
+	}
+
 	sort.Slice(h, func(i, j int) bool { return h[i].count > h[j].count })
 }
 
@@ -108,7 +108,7 @@ func main() {
 	go func() {
 		for r := range results {
 			accumulateWords(r)
-			frequentWords(r, 10)
+			frequentWords(r, 1)
 		}
 		awg.Done()
 	}()

@@ -25,12 +25,13 @@ services:
 
   redis:
     image: redis
-    container_name: db_redis
+    container_name: db_redis 
+    ports:
+      - '6370:6379'
     environment: 
-      - Addr=165.227.151.146:6379
       - Password=7UY2dsFnaNxrhpTH5ZKQtCMq4AZrr4uR
-    volumes: 
-      - myredis/conf/redis.conf:/usr/local/etc/redis/redis.conf  
+      - Addr=165.227.151.146:6379
+ 
 
 volumes: 
   my_go_db:        
