@@ -10,6 +10,7 @@ services:
       - '8080:8080'
     depends_on: 
       - postgres
+      - redis
     environment: 
       - SESSION_KEY
 
@@ -18,8 +19,6 @@ services:
     container_name: db
     ports: 
       - '5441:5432'
-    environment: 
-      - POSTGRES_PASSWORD=postgres
     volumes: 
       - my_go_db:/var/lib/postgresql/data
 
@@ -27,11 +26,7 @@ services:
     image: redis
     container_name: db_redis 
     ports:
-      - '6370:6379'
-    environment: 
-      - Password=7UY2dsFnaNxrhpTH5ZKQtCMq4AZrr4uR
-      - Addr=165.227.151.146:6379
- 
+      - '6379:6379'
 
 volumes: 
   my_go_db:        
