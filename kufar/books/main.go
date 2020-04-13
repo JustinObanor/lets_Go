@@ -14,7 +14,6 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/go-redis/redis"
-	"github.com/gorilla/sessions"
 	"golang.org/x/crypto/bcrypt"
 
 	_ "github.com/lib/pq"
@@ -31,8 +30,6 @@ var password = getenv("PSQL_PWDcas", "postgres")
 var dbname = getenv("PSQL_DB_NAME", "book")
 
 var location, _ = time.LoadLocation("Europe/Minsk")
-
-var store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
 
 //Book ...
 type Book struct {

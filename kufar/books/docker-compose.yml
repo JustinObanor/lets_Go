@@ -5,14 +5,13 @@ services:
     build: 
       context: .
       dockerfile: Dockerfile
+    image: books_app  
     container_name: go
     ports: 
       - '8080:8080'
     depends_on: 
       - postgres
       - redis
-    environment: 
-      - SESSION_KEY
 
   postgres:
     image: postgres
