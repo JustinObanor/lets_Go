@@ -17,7 +17,7 @@ const (
 	lenPrefix = len(urlPrefix)
 	lenSuffix = len(urlSuffix)
 	nLow      = 1
-	nHigh     = 2
+	nHigh     = 1000
 	workers   = 10
 )
 
@@ -33,7 +33,7 @@ func countWords(text string) map[string]int {
 	})
 
 	for _, word := range texts {
-		if len(word) > 4 {
+		if len(word) > 12 {
 			wordCounts[word]++
 		}
 	}
@@ -113,6 +113,8 @@ func main() {
 	}()
 
 	jwg.Wait()
+	close(results)
+awg/W
 	
 }
 
