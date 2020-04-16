@@ -1,0 +1,32 @@
+version: '3'
+  
+services: 
+  app:  
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    image: books_app  
+    container_name: go
+    ports: 
+      - '8080:8080'
+    depends_on: 
+      - postgres
+      - redis
+
+  postgres:
+    image: postgres
+    container_name: db
+    ports: 
+      - '5441:5432'
+    volumes: 
+      - my_dorm_db:/var/lib/postgresql/data
+
+  redis:
+    image: redis
+    container_name: db_redis 
+    ports:
+      - '6379:6379'
+
+volumes: 
+  my_go_db:        
+
