@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -23,37 +22,32 @@ const (
 	cost = 12
 )
 
-var host = getenv("PSQL_HOST", "db")
-var port = getenv("PSQL_PORT", "5432")
+var host = getenv("PSQL_HOST", "localhost")
+var port = getenv("PSQL_PORT", "5441")
 var user = getenv("PSQL_USER", "postgres")
 var password = getenv("PSQL_PWDcas", "postgres")
-var dbname = getenv("PSQL_DB_NAME", "book")
+var dbname = getenv("PSQL_DB_NAME", "dorm")
 
 var location, _ = time.LoadLocation("Europe/Minsk")
 
-//Book ...
-type Book struct {
-	ID     int
-	Name   string
-	Author string
-	Date   time.Time
-	UserID int
+//Student ...
+type Student struct {
+	ID           int
+	FName, LName string
+	Date         time.Time
+	UUID         int
+	StudRoom
+	StudFloor
 }
 
-//BookRequest ...
-type BookRequest struct {
-	ID     int    `json:"id"`
-	Name   string `json:"name"`
-	Author string `json:"author"`
+//StudRoom ...
+type StudRoom struct {
+	ID, Room int
 }
 
-//BookResponse ...
-type BookResponse struct {
-	ID     int    `json:"id"`
-	Name   string `json:"name"`
-	Author string `json:"author"`
-	Date   string `json:"date"`
-	UserID int    `json:"userid"`
+//StudFloor ...
+type StudFloor struct {
+	ID, Floor int
 }
 
 //Credentials ...
@@ -63,10 +57,112 @@ type Credentials struct {
 	Password string
 }
 
+//RoomItems ...
+type RoomItems struct {
+	Room    int
+	Chairs  int
+	Tables  int
+	Shelves int
+}
+
+//StudProvisions ...
+type StudProvisions struct {
+	ID       int
+	Bedsheet int
+	Pillow   int
+	Towel    int
+	Blanket  int
+	Curtain  int
+}
+
+//Worker ...
+type Worker struct {
+	ID    int
+	FName string
+	LName string
+	WorkFloor
+	WorkDays
+}
+
+//WorkFloor ...
+type WorkFloor struct {
+	ID int
+	Floor
+}
+
+//Floor ...
+type Floor struct {
+	Floor, Code int
+}
+
+//WorkDays ...
+type WorkDays struct {
+	ID  int
+	Day string
+}
+
+//StudentRequest ...
+type StudentRequest struct {
+	ID       int    `json:"id"`
+	FName    string `json:"firstname"`
+	LName    string `json:"lastname"`
+	RoomID   int    `json:"roomid"`
+	RoomNum  int    `json:"roomnum"`
+	FloorID  int    `json:"floorid"`
+	FloorNum int    `json:"floornum"`
+}
+
+//StudentResponse ...
+type StudentResponse struct {
+	ID       int    `json:"id"`
+	FName    string `json:"firstname"`
+	LName    string `json:"lastname"`
+	Date     string `json:"date"`
+	UUID     int    `json:"uuid"`
+	RoomID   int    `json:"roomid"`
+	RoomNum  int    `json:"roomnum"`
+	FloorID  int    `json:"floorid"`
+	FloorNum int    `json:"floornum"`
+}
+
 //CredentialsRequest ...
 type CredentialsRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
+}
+
+//RoomItemsReqRes ...
+type RoomItemsReqRes struct {
+	Room    int `json:"room"`
+	Chairs  int `json:"chair"`
+	Tables  int `json:"table"`
+	Shelves int `json:"shelve"`
+}
+
+//StudProvisionsReqRes ...
+type StudProvisionsReqRes struct {
+	ID       int `json:"id"`
+	Bedsheet int `json:"bedsheet"`
+	Pillow   int `json:"pillow"`
+	Towel    int `json:"towel"`
+	Blanket  int `json:"blanket"`
+	Curtain  int `json:"curtain"`
+}
+
+//FloorCodeResReq ...
+type FloorCodeResReq struct {
+	Floor int `json:"floor"`
+	Code  int `json:"code"`
+}
+
+// WorkerResReq ...
+type WorkerResReq struct {
+	ID        int    `json:"id"`
+	FName     string `json:"firstname"`
+	LName     string `json:"lastname"`
+	WorkID    int    `json:"workid"`
+	WorkFloor int    `json:"workfloor"`
+	WorkDays  int    `json:"workdays"`
 }
 
 //Database ...
@@ -80,8 +176,8 @@ type rediscache struct {
 
 //Cache interface
 type Cache interface {
-	Get(string) (Book, error)
-	Set(string, *Book) error
+	Get(string) (Student, error)
+	Set(string, *Student) error
 	Remove(string) error
 }
 
@@ -92,30 +188,65 @@ func main() {
 	}
 	defer db.Close()
 
-	c, err := newRedisCacheClient()
-	if err != nil {
-		log.Fatalf("error connecting to redis: %v", err)
-	}
+	// c, err := newRedisCacheClient()
+	// if err != nil {
+	// 	log.Fatalf("error connecting to redis: %v", err)
+	// }
 
 	r := chi.NewRouter()
 	r.Post("/signup", SignUpUser(*db))
 
 	r.Middlewares()
 
-	r.Route("/books", func(r chi.Router) {
-		r.Use(StupidMiddleware("1"))
-		r.Post("/", CreateBook(*db))
-		r.Get("/", ReadBooks(*db))
-
-		r.Route("/{id}", func(r chi.Router) {
-			r.Get("/", ReadBook(*db, c))
-			r.Put("/", UpdateBook(*db, c))
-			r.Delete("/", DeleteBook(*db, c))
-		})
+	r.Route("/student", func(r chi.Router) {
+		r.Post("/", CreateStudent(*db))
+		r.Get("/", ReadStudents(*db))
 	})
 
 	log.Fatal(http.ListenAndServe(":8080", r))
 }
+
+/*
+		r.Route("/{id}", func(r chi.Router) {
+			r.Get("/", ReadStudent(*db, c))
+			r.Put("/", UpdateStudent(*db, c))
+			r.Delete("/", DeleteStudent(*db, c))
+		})
+
+		r.Route("/provision", func(r chi.Router) {
+			r.Post("/", CreateProvision(*db))
+			r.Get("/", ReadProvisions(*db))
+
+			r.Route("/{id}", func(r chi.Router) {
+				r.Get("/", ReadProvision(*db))
+				r.Put("/", UpdateProvision(*db))
+				r.Delete("/", DeleteProvision(*db))
+			})
+		})
+	})
+
+	r.Route("room", func(r chi.Router) {
+		r.Post("/", CreateRoom(*db))
+		r.Get("/", ReadRooms(*db))
+
+		r.Route("/{id}", func(r chi.Router) {
+			r.Get("/", ReadRoom(*db))
+			r.Put("/", UpdateRoom(*db))
+			r.Delete("/", DeleteRoom(*db))
+		})
+	})
+
+	r.Route("worker", func(r chi.Router) {
+		r.Post("/", CreateWorker(*db))
+		r.Get("/", ReadWorkers(*db))
+
+		r.Route("/{id}", func(r chi.Router) {
+			r.Get("/", ReadWorker(*db))
+			r.Put("/", UpdateWorker(*db))
+			r.Delete("/", DeleteWorker(*db))
+		})
+	})
+*/
 
 func getenv(key, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
@@ -124,11 +255,11 @@ func getenv(key, fallback string) string {
 	return fallback
 }
 
-//StupidMiddleware ...
+// StupidMiddleware ...
 func StupidMiddleware(id string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if id == "8" {
+			if id != "0" {
 				return
 			}
 			next.ServeHTTP(w, r)
@@ -136,13 +267,17 @@ func StupidMiddleware(id string) func(http.Handler) http.Handler {
 	}
 }
 
-func convertToResponse(books Book) BookResponse {
-	return BookResponse{
-		ID:     books.ID,
-		Name:   books.Name,
-		Author: books.Author,
-		Date:   books.Date.In(location).Format(time.RFC1123),
-		UserID: books.UserID,
+func convertToResponse(s Student) StudentResponse {
+	return StudentResponse{
+		ID:       s.ID,
+		FName:    s.FName,
+		LName:    s.LName,
+		Date:     s.Date.In(location).Format(time.RFC1123),
+		UUID:     s.UUID,
+		RoomID:   s.StudRoom.ID,
+		RoomNum:  s.StudRoom.Room,
+		FloorID:  s.StudFloor.ID,
+		FloorNum: s.StudFloor.Floor,
 	}
 }
 
@@ -277,8 +412,8 @@ func SignUpUser(d Database) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-//CreateBook ...
-func CreateBook(d Database) func(w http.ResponseWriter, r *http.Request) {
+//CreateStudent ...
+func CreateStudent(d Database) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, valid := d.CheckAuth(&r.Header)
 		if !valid {
@@ -286,50 +421,50 @@ func CreateBook(d Database) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		var bk Book
-		if err := json.NewDecoder(r.Body).Decode(&bk); err != nil {
+		var st Student
+		if err := json.NewDecoder(r.Body).Decode(&st); err != nil {
 			http.Error(w, http.StatusText(http.StatusBadRequest)+": eror unmarshalling json", http.StatusBadRequest)
 			return
 		}
 
 		now := time.Now().UTC()
 
-		if userID != bk.UserID {
+		if userID != st.UUID {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte(http.StatusText(http.StatusUnauthorized) + ": you dont have access to this resource"))
 			return
 		}
 
-		if _, err := d.db.Exec("insert into books(id, name, author, date, userid) values($1, $2, $3, $4, $5)", bk.ID, bk.Name, bk.Author, now, bk.UserID); err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not add new books. Try changing id", http.StatusInternalServerError)
+		if _, err := d.db.Exec("insert into student(id, firstname, lastname, date, uuid, studroom, studfloor) values($1, $2, $3, $4, $5, %6, %7)", st.ID, st.FName, st.LName, now, st.UUID, st.StudRoom, st.StudFloor); err != nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not add new student. Try changing id", http.StatusInternalServerError)
 			return
 		}
-		w.Write([]byte(http.StatusText(http.StatusOK) + ": created book"))
+		w.Write([]byte(http.StatusText(http.StatusOK) + ": created student"))
 	}
 }
 
-//ReadBooks ...
-func ReadBooks(d Database) func(w http.ResponseWriter, r *http.Request) {
+//ReadStudents ...
+func ReadStudents(d Database) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		rows, err := d.db.Query("select id, name, author, date, userid from books order by id asc")
+		rows, err := d.db.Query("select id, firstname, lastname, date, uuid ,studroom, studfloor from student order by id asc")
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not list books", http.StatusInternalServerError)
+			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not list students", http.StatusInternalServerError)
 			return
 		}
 		defer rows.Close()
 
-		bks := []Book{}
+		stds := []Student{}
 		for rows.Next() {
-			bk := Book{}
-			if err := rows.Scan(&bk.ID, &bk.Name, &bk.Author, &bk.Date, &bk.UserID); err != nil {
+			std := Student{}
+			if err := rows.Scan(&std.ID, &std.FName, &std.LName, &std.Date, &std.UUID, &std.StudRoom, &std.StudFloor); err != nil {
 				http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not scan db", http.StatusInternalServerError)
 				return
 			}
-			bks = append(bks, bk)
+			stds = append(stds, std)
 		}
-		var resps []BookResponse
-		for _, book := range bks {
-			resp := convertToResponse(book)
+		var resps []StudentResponse
+		for _, s := range stds {
+			resp := convertToResponse(s)
 			resps = append(resps, resp)
 		}
 
@@ -341,22 +476,24 @@ func ReadBooks(d Database) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (r *rediscache) Get(id string) (Book, error) {
-	var bk Book
+/*
+
+func (r *rediscache) Get(id string) (Student, error) {
+	var s Student
 	val, err := r.redis.Get(id).Result()
 	if err == redis.Nil || err != nil {
-		return bk, err
+		return s, err
 	}
 
-	if err := json.Unmarshal([]byte(val), &bk); err != nil {
-		return bk, err
+	if err := json.Unmarshal([]byte(val), &s); err != nil {
+		return s, err
 	}
 
-	return bk, nil
+	return s, nil
 }
 
-func (r *rediscache) Set(id string, bk *Book) error {
-	b, err := json.Marshal(&bk)
+func (r *rediscache) Set(id string, s *Student) error {
+	b, err := json.Marshal(&s)
 	if err != nil {
 		return err
 	}
@@ -514,3 +651,4 @@ func DeleteBook(d Database, c Cache) func(w http.ResponseWriter, r *http.Request
 		w.Write([]byte(http.StatusText(http.StatusOK) + ": deleted book"))
 	}
 }
+*/

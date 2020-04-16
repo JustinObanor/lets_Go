@@ -32,7 +32,7 @@ func main() {
 	idHigh := flag.Int("to", 1000, "The last ID that should be searched in the URL")
 	concurrency := flag.Int("concurrency", 1000, "How many scrapers to run in parallel. (More scrapers are faster, but more prone to rate limiting or bandwith issues)")
 	outfile := flag.String("output", "output.csv", "Filename to export the CSV results")
-	body := flag.String("body > pre", "body", "JQuery-style query for the body element")
+	body := flag.String("c", "body", "JQuery-style query for the body element")
 	flag.Parse()
 
 	queries := []string{*body}
