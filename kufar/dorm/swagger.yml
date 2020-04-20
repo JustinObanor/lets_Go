@@ -1,0 +1,201 @@
+openapi: 3.0.0
+
+info:
+  title: Dorm API
+  version: 0.1.0
+  description: An API for dormitory information
+
+paths:
+  /student:
+    post:
+
+      parameters: 
+        - $ref: '#/components/parameters/requestHeader'
+      description: Lets a user add a new student
+  
+      responses:
+        '200':
+          $ref: '#/components/responses/StatusOK'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref:  '#/components/responses/StatusUnauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'  
+
+    get:
+
+      description: Lets a user view a student
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref:  '#/components/responses/StatusUnauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'  
+
+    put:
+
+      parameters: 
+        - $ref: '#/components/parameters/requestHeader'
+      description: Lets a user update a student
+
+      responses:
+        '200':
+          $ref: '#/components/responses/StatusOK'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref:  '#/components/responses/StatusUnauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'  
+
+
+    delete:     
+
+      parameters: 
+        - $ref: '#/components/parameters/requestHeader'
+      description: Lets a user delete a student
+
+      responses:
+        '200':
+          $ref: '#/components/responses/StatusOK'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref:  '#/components/responses/StatusUnauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'  
+                       
+components:
+
+  parameters:
+
+    requestHeader:
+      in: header
+      name: Basic HTTP Auth
+      schema:
+        type: string
+        example: Basic oWVzflDrjRHBVuH0I=
+      required: true
+      description: Basic + base64      
+  
+  responses:
+
+    StatusUnauthorized:
+      description: Status Unauthorized
+      content:
+        application/json:
+          examples:
+            Internal Server Error:
+              description: Status Unauthorized
+              value:
+                code: string
+                http:
+                  message: Status Unauthorized
+                  code: 401    
+
+    
+    BadRequestError:
+      description: Bad request
+      content:
+        application/json:
+          examples:
+            Bad json request:
+              description: Eror unmarshalling json
+              value:
+                code: string
+                http:
+                  message: Bad Request
+                  code: 400
+
+    StatusOK:
+      description: Status OK
+      content:
+        application/json:
+          examples:
+            Status OK:
+              description: Status OK
+              value:
+                code: string
+                http:
+                  message: Status OK
+                  code: 200   
+
+    Ok:  
+      description: student
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              ID:
+                type: string
+                description: The id of the student
+              Firstname:
+                type: string
+                description: The name of the student
+              Lastname:
+                type: string
+                description: The lastname of the student  
+              Date:
+                type: string
+                description: The date student was created
+              UUID:  
+                type: string
+                description: A unique user id for the student    
+              StudRoom:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  room: 
+                    type: integer
+                    description:  Room number
+              StudFloor:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    floor: 
+                      type: integer
+                      description:  floor number                  
+
+      
+      
+    UserAccount:
+      description: UserAccount
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              request_id:
+                type: string
+                description: The id of the request made
+              server_time:
+                type: string
+                description: Current time request was made
+              data:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  status: 
+                    type: boolean
+                    description:  Data with an id and a status
+
+    InternalServerError:
+      description: Internal Server Error
+      content:
+        application/json:
+          examples:
+            Internal Server Error:
+              description: Internal Server Error
+              value:
+                code: string
+                http:
+                  message: Internal Server Error
+                  code: 500       

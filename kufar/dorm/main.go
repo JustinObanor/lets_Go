@@ -219,7 +219,6 @@ func CreateStudent(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		var st Student
 		if err := json.NewDecoder(r.Body).Decode(&st); err != nil {
-			fmt.Println(err)
 			http.Error(w, http.StatusText(http.StatusBadRequest)+": eror unmarshalling json", http.StatusBadRequest)
 			return
 		}
