@@ -23,7 +23,7 @@ const (
 )
 
 var host = getenv("PSQL_HOST", "localhost")
-var port = getenv("PSQL_PORT", "5441")
+var port = getenv("PSQL_PORT", "5432")
 var user = getenv("PSQL_USER", "postgres")
 var password = getenv("PSQL_PWDcas", "postgres")
 var dbname = getenv("PSQL_DB_NAME", "dorm")
