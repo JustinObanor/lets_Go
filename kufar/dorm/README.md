@@ -1,11 +1,13 @@
 API for a students dormitory.
-This README explains for only a student. But its the same for provisions, room, and workers
+This README explains for only a student path. But its the same for provisions, room, and workers.
 This will be an application programming interface that allows users to Create, Read, Update, and Delete specific resources.
 
 ## Idea
-You can make a table or anything you prefer, that will show all available students in the database. Each row of a particular student, should have options for viewing the particular student, editting the particular student, or deleting it
+You can make a table or anything you prefer, that will show all available students/provisions/room/workers in the database. Each row of a particular resource, should have options for viewing, editting, or deleting it
 
-Somewhere on the screen, maybe below should be a place for creating a new student, or for signup
+In short, a table of resources(students, provisions, room, workers). In each row, i can read, edit, or delete it
+
+Somewhere on the screen, maybe below should be a place for creating a new resource, or for signup
 
 ## Types of users
 ```
@@ -15,12 +17,10 @@ Somewhere on the screen, maybe below should be a place for creating a new studen
 
 ```
 
-```
 
 Admins have all rights.
 Only users with correct credential in the http Authorization header are allowed to Create, Update or Delete a specific resource. 
 
-```
 
 ## Post Signup
 User need to signup first
@@ -48,14 +48,14 @@ After signup, the user will see all the available students
 
 ## Post student
 This is for making a new student
-We use Basic HTTP Authorization header(Basic base64)
+We use Basic HTTP Authorization header(Basic + base64)
 
 This is passed in the request header as - 
 ```
 Basic oWVzflDrjRHBVuH0I=
 ```
 
-Also make a page for incorrect credentials
+Also make a page for incorrect credentials(i think)
 
 If credentials are correct, there should be a place where user can input -
 ```
@@ -85,7 +85,7 @@ User should pass in the id, firstname, lastname.... and then submit it
 Feel free to add any other design you like
 
 ## Get all student
-Ths should show all the students
+Ths should show all the students(the table of students)
 No Authorization required
 This url list all the students available in the database
 
@@ -108,23 +108,23 @@ This url list all the students available in the database
             },
             "StudFloor": {
                 "id": 1,
-                "floor": 1
+                "floor": 0
             }
             },
 
             {
-            "ID": 1,
+            "ID": 2,
             "Firstname": "string",
             "Lastname": "string",
             "Date": "string",
-            "UUID": 1,
+            "UUID": 2,
             "StudRoom": {
-                "id": 1,
+                "id": 2,
                 "room": 0
             },
             "StudFloor": {
-                "id": 1,
-                "floor": 1
+                "id": 2,
+                "floor": 0
             }
             }
 ]            
@@ -139,7 +139,6 @@ Feel free to add any other design you like
 This should show one student
 No Authorization required
 
-The user should specify the id of the student required. example id - 1
 If student exists, then we see page of student
 
 ```
