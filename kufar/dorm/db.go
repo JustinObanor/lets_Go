@@ -21,7 +21,7 @@ type rediscache struct {
 // newRedisCacheClient ...
 func newRedisCacheClient() (*rediscache, error) {
 	client := redis.NewClient(&redis.Options{
-		Addr:     os.Getenv("Addr"),
+		Addr:     "db_redis:6379",
 		Password: os.Getenv("Password"),
 	})
 

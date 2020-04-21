@@ -4,6 +4,10 @@ info:
   title: Dorm API
   version: 0.1.0
   description: An API for dormitory information
+  
+servers:
+  - url: http://localhost:8080
+    description: Preproduction server
 
 paths:
   /student:
@@ -12,6 +16,46 @@ paths:
       parameters: 
         - $ref: '#/components/parameters/requestHeader'
       description: Lets a user add a new student
+  
+      requestBody:
+        description: Optional description in *Markdown*
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ID:
+                  type: integer
+                  description: The id of the student
+                Firstname:
+                  type: string
+                  description: The name of the student
+                Lastname:
+                  type: string
+                  description: The lastname of the student  
+                Date:
+                  type: string
+                  description: The date student was created
+                UUID:  
+                  type: integer
+                  description: A unique user id for the student    
+                StudRoom:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    room: 
+                      type: integer
+                      description:  Room number
+                StudFloor:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      floor: 
+                        type: integer
+                        description:  floor number     
   
       responses:
         '200':
@@ -44,6 +88,47 @@ paths:
         - $ref: '#/components/parameters/requestHeader'
         - $ref: '#/components/parameters/urlParam'
       description: Lets a user update a student
+
+      requestBody:
+        description: Optional description in *Markdown*
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ID:
+                  type: integer
+                  description: The id of the student
+                Firstname:
+                  type: string
+                  description: The name of the student
+                Lastname:
+                  type: string
+                  description: The lastname of the student  
+                Date:
+                  type: string
+                  description: The date student was created
+                UUID:  
+                  type: integer
+                  description: A unique user id for the student    
+                StudRoom:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    room: 
+                      type: integer
+                      description:  Room number
+                StudFloor:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      floor: 
+                        type: integer
+                        description:  floor number     
+
 
       responses:
         '200':
@@ -81,6 +166,33 @@ paths:
         - $ref: '#/components/parameters/requestHeader'
         - $ref: '#/components/parameters/urlParam'
       description: Lets a user add a new provision
+      
+      requestBody:
+        description: Optional description in *Markdown*
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                  description: Students id
+                bedhseet:
+                  type: string
+                  description: number of bedhseets
+                pillow:
+                  type: string
+                  description: number of pillows
+                towel:
+                  type: string
+                  description: number of towels
+                blanket:
+                  type: string
+                  description: number of blankets
+                curtain:      
+                  type: string    
+    
             
       responses:
         '200':
@@ -113,6 +225,32 @@ paths:
       parameters: 
         - $ref: '#/components/parameters/requestHeader'
       description: Lets a user update a student
+      
+      requestBody:
+        description: Optional description in *Markdown*
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                  description: Students id
+                bedhseet:
+                  type: string
+                  description: number of bedhseets
+                pillow:
+                  type: string
+                  description: number of pillows
+                towel:
+                  type: string
+                  description: number of towels
+                blanket:
+                  type: string
+                  description: number of blankets
+                curtain:      
+                  type: string    
           
       responses:
         '200':
@@ -148,7 +286,31 @@ paths:
         - $ref: '#/components/parameters/requestHeader'
         - $ref: '#/components/parameters/urlParam'
       description: Lets a user add a new room
-            
+      
+      requestBody:
+        description: post request body for room
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                  description: room id
+                room:
+                  type: string
+                  description: room number
+                chairs:
+                  type: string
+                  description: number of chairs
+                tables:
+                  type: string
+                  description: number of tables
+                shelves:
+                  type: string
+                  description: number of blankets
+              
       responses:
         '200':
           $ref: '#/components/responses/StatusOK'
@@ -180,6 +342,30 @@ paths:
       parameters: 
         - $ref: '#/components/parameters/requestHeader'
       description: Lets a user update a room
+      
+      requestBody:
+        description: put request body for room
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                  description: room id
+                room:
+                  type: string
+                  description: room number
+                chairs:
+                  type: string
+                  description: number of chairs
+                tables:
+                  type: string
+                  description: number of tables
+                shelves:
+                  type: string
+                  description: number of blankets
           
       responses:
         '200':
@@ -215,6 +401,40 @@ paths:
         - $ref: '#/components/parameters/requestHeader'
         - $ref: '#/components/parameters/urlParam'
       description: Lets a user add a new worker
+      
+      requestBody:
+        description: put request body for room
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                  description: worker id
+                firstname:
+                  type: string
+                  description: workers firstname
+                lastname:
+                  type: string
+                  description: workers lastname
+                Workfloor:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    Floor:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        code: 
+                          type: integer
+                          description:  floor code
+                Workdays:
+                  type: string
+                  description: workers working days
             
       responses:
         '200':
@@ -247,6 +467,40 @@ paths:
       parameters: 
         - $ref: '#/components/parameters/requestHeader'
       description: Lets a user update a worker
+      
+      requestBody:
+        description: put request body for room
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                  description: worker id
+                firstname:
+                  type: string
+                  description: workers firstname
+                lastname:
+                  type: string
+                  description: workers lastname
+                Workfloor:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    Floor:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        code: 
+                          type: integer
+                          description:  floor code
+                Workdays:
+                  type: string
+                  description: workers working days
           
       responses:
         '200':
@@ -283,7 +537,7 @@ components:
 
     requestHeader:
       in: header
-      name: Basic HTTP Auth
+      name: Authorizatio n
       schema:
         type: string
         example: Basic oWVzflDrjRHBVuH0I=
@@ -308,7 +562,7 @@ components:
             Internal Server Error:
               description: Status Unauthorized
               value:
-                code: string
+                code: integer
                 http:
                   message: Status Unauthorized
                   code: 401    
@@ -321,7 +575,7 @@ components:
             Bad json request:
               description: Eror unmarshalling json
               value:
-                code: string
+                code: integer
                 http:
                   message: Bad Request
                   code: 400
@@ -386,7 +640,7 @@ components:
             type: object
             properties:
               id:
-                type: string
+                type: integer
                 description: Students id
               bedhseet:
                 type: string
@@ -412,7 +666,7 @@ components:
             type: object
             properties:
               id:
-                type: string
+                type: integer
                 description: room id
               room:
                 type: string
@@ -435,7 +689,7 @@ components:
             type: object
             properties:
               id:
-                type: string
+                type: integer
                 description: worker id
               firstname:
                 type: string

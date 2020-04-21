@@ -66,7 +66,7 @@ func ReadProvisions(d Database) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rows, err := d.db.Query("select id, bedsheet, pillow, towel, blanket, curtain from provisions order by id asc")
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not list students", http.StatusInternalServerError)
+			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not list provisions", http.StatusInternalServerError)
 			return
 		}
 		defer rows.Close()

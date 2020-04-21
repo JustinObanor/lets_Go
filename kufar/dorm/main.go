@@ -20,10 +20,10 @@ const (
 	cost = 12
 )
 
-var host = getenv("PSQL_HOST", "localhost")
+var host = getenv("PSQL_HOST", "db")
 var port = getenv("PSQL_PORT", "5432")
 var user = getenv("PSQL_USER", "postgres")
-var password = getenv("PSQL_PWDcas", "justin1999")
+var password = getenv("PSQL_PWDcas", "postgres")
 var dbname = getenv("PSQL_DB_NAME", "dorm")
 
 var location, _ = time.LoadLocation("Europe/Minsk")
