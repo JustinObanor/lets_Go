@@ -120,7 +120,7 @@ paths:
       description: Lets a user update a student
 
       requestBody:
-        description: students requestBody
+        description: Students Requestbody
         required: true
         content:
           application/json:
@@ -194,11 +194,10 @@ paths:
           
       parameters: 
         - $ref: '#/components/parameters/requestHeader'
-        - $ref: '#/components/parameters/urlParam'
       description: Lets a user add a new provision
       
       requestBody:
-        description: students requestBody
+        description: provision request body
         required: true
         content:
           application/json:
@@ -255,11 +254,12 @@ paths:
     put:
             
       parameters: 
+        - $ref: '#/components/parameters/urlParam'
         - $ref: '#/components/parameters/requestHeader'
       description: Lets a user update a student
         
       requestBody:
-        description: students requestBody
+        description: user requestBody
         required: true
         content:
           application/json:
@@ -299,6 +299,7 @@ paths:
             
       parameters: 
         - $ref: '#/components/parameters/requestHeader'
+        - $ref: '#/components/parameters/urlParam'
       description: Lets a user delete a student
             
       responses:
@@ -315,8 +316,8 @@ paths:
     post:
           
       parameters: 
-        - $ref: '#/components/parameters/requestHeader'
         - $ref: '#/components/parameters/urlParam'
+        - $ref: '#/components/parameters/requestHeader'
       description: Lets a user add a new room
       
       requestBody:
@@ -374,6 +375,7 @@ paths:
     put:
           
       parameters: 
+        - $ref: '#/components/parameters/urlParam'
         - $ref: '#/components/parameters/requestHeader'
       description: Lets a user update a room
       
@@ -415,6 +417,7 @@ paths:
     delete:     
           
       parameters: 
+        - $ref: '#/components/parameters/urlParam'
         - $ref: '#/components/parameters/requestHeader'
       description: Lets a user delete a room
           
@@ -433,7 +436,6 @@ paths:
           
       parameters: 
         - $ref: '#/components/parameters/requestHeader'
-        - $ref: '#/components/parameters/urlParam'
       description: Lets a user add a new worker
       
       requestBody:
@@ -501,6 +503,7 @@ paths:
     put:
           
       parameters: 
+        - $ref: '#/components/parameters/urlParam'
         - $ref: '#/components/parameters/requestHeader'
       description: Lets a user update a worker
       
@@ -552,6 +555,7 @@ paths:
     delete:     
           
       parameters: 
+        - $ref: '#/components/parameters/urlParam'
         - $ref: '#/components/parameters/requestHeader'
       description: Lets a user delete a worker
           
