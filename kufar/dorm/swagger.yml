@@ -25,10 +25,12 @@ paths:
 
     get:
 
-      description: Lets a user view a student
+      parameters: 
+        - $ref: '#/components/parameters/urlParam'
+      description: Lets a user view one student
       responses:
         '200':
-          $ref: '#/components/responses/Ok'
+          $ref: '#/components/responses/student'
         '400':
           $ref: '#/components/responses/BadRequestError'
         '401':
@@ -40,6 +42,7 @@ paths:
 
       parameters: 
         - $ref: '#/components/parameters/requestHeader'
+        - $ref: '#/components/parameters/urlParam'
       description: Lets a user update a student
 
       responses:
@@ -57,6 +60,7 @@ paths:
 
       parameters: 
         - $ref: '#/components/parameters/requestHeader'
+        - $ref: '#/components/parameters/urlParam'
       description: Lets a user delete a student
 
       responses:
@@ -68,7 +72,211 @@ paths:
           $ref:  '#/components/responses/StatusUnauthorized'
         '500':
           $ref: '#/components/responses/InternalServerError'  
-                       
+
+          
+  /provisions:
+    post:
+          
+      parameters: 
+        - $ref: '#/components/parameters/requestHeader'
+        - $ref: '#/components/parameters/urlParam'
+      description: Lets a user add a new provision
+            
+      responses:
+        '200':
+          $ref: '#/components/responses/StatusOK'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref:  '#/components/responses/StatusUnauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'  
+          
+    get:
+          
+      parameters: 
+        - $ref: '#/components/parameters/urlParam'
+      description: Lets a user view one student
+  
+      responses:
+        '200':
+          $ref: '#/components/responses/provision'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref:  '#/components/responses/StatusUnauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'  
+          
+    put:
+          
+      parameters: 
+        - $ref: '#/components/parameters/requestHeader'
+      description: Lets a user update a student
+          
+      responses:
+        '200':
+          $ref: '#/components/responses/StatusOK'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref:  '#/components/responses/StatusUnauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'  
+          
+          
+    delete:     
+          
+      parameters: 
+        - $ref: '#/components/parameters/requestHeader'
+      description: Lets a user delete a student
+          
+      responses:
+        '200':
+          $ref: '#/components/responses/StatusOK'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref:  '#/components/responses/StatusUnauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'          
+
+  /room:
+    post:
+          
+      parameters: 
+        - $ref: '#/components/parameters/requestHeader'
+        - $ref: '#/components/parameters/urlParam'
+      description: Lets a user add a new room
+            
+      responses:
+        '200':
+          $ref: '#/components/responses/StatusOK'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref:  '#/components/responses/StatusUnauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'  
+          
+    get:
+          
+      parameters: 
+        - $ref: '#/components/parameters/urlParam'
+      description: Lets a user view one room
+  
+      responses:
+        '200':
+          $ref: '#/components/responses/room'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref:  '#/components/responses/StatusUnauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'  
+          
+    put:
+          
+      parameters: 
+        - $ref: '#/components/parameters/requestHeader'
+      description: Lets a user update a room
+          
+      responses:
+        '200':
+          $ref: '#/components/responses/StatusOK'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref:  '#/components/responses/StatusUnauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'  
+          
+          
+    delete:     
+          
+      parameters: 
+        - $ref: '#/components/parameters/requestHeader'
+      description: Lets a user delete a room
+          
+      responses:
+        '200':
+          $ref: '#/components/responses/StatusOK'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref:  '#/components/responses/StatusUnauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'          
+          
+  /worker:
+    post:
+          
+      parameters: 
+        - $ref: '#/components/parameters/requestHeader'
+        - $ref: '#/components/parameters/urlParam'
+      description: Lets a user add a new worker
+            
+      responses:
+        '200':
+          $ref: '#/components/responses/StatusOK'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref:  '#/components/responses/StatusUnauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'  
+          
+    get:
+          
+      parameters: 
+        - $ref: '#/components/parameters/urlParam'
+      description: Lets a user view one worker
+  
+      responses:
+        '200':
+          $ref: '#/components/responses/worker'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref:  '#/components/responses/StatusUnauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'  
+          
+    put:
+          
+      parameters: 
+        - $ref: '#/components/parameters/requestHeader'
+      description: Lets a user update a worker
+          
+      responses:
+        '200':
+          $ref: '#/components/responses/StatusOK'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref:  '#/components/responses/StatusUnauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'  
+          
+          
+    delete:     
+          
+      parameters: 
+        - $ref: '#/components/parameters/requestHeader'
+      description: Lets a user delete a worker
+          
+      responses:
+        '200':
+          $ref: '#/components/responses/StatusOK'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref:  '#/components/responses/StatusUnauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'          
+          
+          
+          
 components:
 
   parameters:
@@ -80,7 +288,15 @@ components:
         type: string
         example: Basic oWVzflDrjRHBVuH0I=
       required: true
-      description: Basic + base64      
+      description: Basic + base64    
+   
+    urlParam:
+      in: path   
+      name: student ID
+      schema:
+        type: integer
+        example: 1
+      required: true  
   
   responses:
 
@@ -96,8 +312,7 @@ components:
                 http:
                   message: Status Unauthorized
                   code: 401    
-
-    
+                   
     BadRequestError:
       description: Bad request
       content:
@@ -124,7 +339,7 @@ components:
                   message: Status OK
                   code: 200   
 
-    Ok:  
+    student:  
       description: student
       content:
         application/json:
@@ -163,29 +378,87 @@ components:
                       type: integer
                       description:  floor number                  
 
-      
-      
-    UserAccount:
-      description: UserAccount
+    provision:
+      description: students provisions
       content:
         application/json:
           schema:
             type: object
             properties:
-              request_id:
+              id:
                 type: string
-                description: The id of the request made
-              server_time:
+                description: Students id
+              bedhseet:
                 type: string
-                description: Current time request was made
-              data:
+                description: number of bedhseets
+              pillow:
+                type: string
+                description: number of pillows
+              towel:
+                type: string
+                description: number of towels
+              blanket:
+                type: string
+                description: number of blankets
+              curtain:      
+                type: string
+                description: number of curtains
+                
+    room:
+      description: students room
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              id:
+                type: string
+                description: room id
+              room:
+                type: string
+                description: room number
+              chairs:
+                type: string
+                description: number of chairs
+              tables:
+                type: string
+                description: number of tables
+              shelves:
+                type: string
+                description: number of blankets
+                
+    worker:
+      description:  worker in dorm
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              id:
+                type: string
+                description: worker id
+              firstname:
+                type: string
+                description: workers firstname
+              lastname:
+                type: string
+                description: workers lastname
+              Workfloor:
                 type: object
                 properties:
                   id:
                     type: integer
-                  status: 
-                    type: boolean
-                    description:  Data with an id and a status
+                  Floor:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      code: 
+                        type: integer
+                        description:  floor code
+              Workdays:
+                type: string
+                description: workers working days          
 
     InternalServerError:
       description: Internal Server Error
