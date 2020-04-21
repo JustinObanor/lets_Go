@@ -10,6 +10,35 @@ servers:
     description: Preproduction server
 
 paths:
+
+  /signup:
+    post:
+      
+      requestBody:
+        description: credentials request body
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+                  
+      responses:
+        '200':
+          $ref: '#/components/responses/StatusOK'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref:  '#/components/responses/StatusUnauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'  
+                
+
+
   /student:
     post:
 
@@ -18,7 +47,7 @@ paths:
       description: Lets a user add a new student
   
       requestBody:
-        description: Optional description in *Markdown*
+        description: student request body
         required: true
         content:
           application/json:
@@ -91,7 +120,7 @@ paths:
       description: Lets a user update a student
 
       requestBody:
-        description: Optional description in *Markdown*
+        description: students requestBody
         required: true
         content:
           application/json:
@@ -169,7 +198,7 @@ paths:
       description: Lets a user add a new provision
       
       requestBody:
-        description: Optional description in *Markdown*
+        description: students requestBody
         required: true
         content:
           application/json:
@@ -208,11 +237,11 @@ paths:
    
   /provisions/{id}:
     get:
-          
+            
       parameters: 
         - $ref: '#/components/parameters/urlParam'
       description: Lets a user view one student
-  
+    
       responses:
         '200':
           $ref: '#/components/responses/provision'
@@ -222,15 +251,15 @@ paths:
           $ref:  '#/components/responses/StatusUnauthorized'
         '500':
           $ref: '#/components/responses/InternalServerError'  
-          
+            
     put:
-          
+            
       parameters: 
         - $ref: '#/components/parameters/requestHeader'
       description: Lets a user update a student
-      
+        
       requestBody:
-        description: Optional description in *Markdown*
+        description: students requestBody
         required: true
         content:
           application/json:
@@ -254,7 +283,7 @@ paths:
                   description: number of blankets
                 curtain:      
                   type: string    
-          
+            
       responses:
         '200':
           $ref: '#/components/responses/StatusOK'
@@ -264,14 +293,14 @@ paths:
           $ref:  '#/components/responses/StatusUnauthorized'
         '500':
           $ref: '#/components/responses/InternalServerError'  
-          
-          
+            
+            
     delete:     
-          
+            
       parameters: 
         - $ref: '#/components/parameters/requestHeader'
       description: Lets a user delete a student
-          
+            
       responses:
         '200':
           $ref: '#/components/responses/StatusOK'
