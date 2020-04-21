@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -46,7 +45,6 @@ func CreateProvision(d Database) func(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if userID != pr.ID && userID != 0 {
-			fmt.Println(userID)
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte(http.StatusText(http.StatusUnauthorized) + ": you dont have access to this resource"))
 			return

@@ -9,6 +9,12 @@ import (
 	"github.com/go-redis/redis"
 )
 
+var host = getenv("PSQL_HOST", "db")
+var port = getenv("PSQL_PORT", "5432")
+var user = getenv("PSQL_USER", "postgres")
+var password = getenv("PSQL_PWDcas", "postgres")
+var dbname = getenv("PSQL_DB_NAME", "dorm")
+
 //Database ...
 type Database struct {
 	db *sql.DB

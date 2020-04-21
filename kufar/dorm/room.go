@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -43,8 +42,7 @@ func CreateRoom(d Database) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if userID != 0 {
-			fmt.Println(userID)
+		if userID != rm.ID && userID != 0 {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte(http.StatusText(http.StatusUnauthorized) + ": you dont have access to this resource"))
 			return

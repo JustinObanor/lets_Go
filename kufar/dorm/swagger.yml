@@ -177,6 +177,47 @@ paths:
         - $ref: '#/components/parameters/requestHeader'
         - $ref: '#/components/parameters/urlParam'
       description: Lets a user delete a student
+      
+      requestBody:
+        description: student request body
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ID:
+                  type: integer
+                  description: The id of the student
+                Firstname:
+                  type: string
+                  description: The name of the student
+                Lastname:
+                  type: string
+                  description: The lastname of the student  
+                Date:
+                  type: string
+                  description: The date student was created
+                UUID:  
+                  type: integer
+                  description: A unique user id for the student    
+                StudRoom:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    room: 
+                      type: integer
+                      description:  Room number
+                StudFloor:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      floor: 
+                        type: integer
+                        description:  floor number     
+
 
       responses:
         '200':
@@ -205,22 +246,22 @@ paths:
               type: object
               properties:
                 id:
-                  type: string
+                  type: integer
                   description: Students id
                 bedhseet:
-                  type: string
+                  type: integer
                   description: number of bedhseets
                 pillow:
-                  type: string
+                  type: integer
                   description: number of pillows
                 towel:
-                  type: string
+                  type: integer
                   description: number of towels
                 blanket:
-                  type: string
+                  type: integer
                   description: number of blankets
                 curtain:      
-                  type: string    
+                  type: integer    
     
             
       responses:
@@ -267,22 +308,22 @@ paths:
               type: object
               properties:
                 id:
-                  type: string
+                  type: integer
                   description: Students id
                 bedhseet:
-                  type: string
+                  type: integer
                   description: number of bedhseets
                 pillow:
-                  type: string
+                  type: integer
                   description: number of pillows
                 towel:
-                  type: string
+                  type: integer
                   description: number of towels
                 blanket:
-                  type: string
+                  type: integer
                   description: number of blankets
                 curtain:      
-                  type: string    
+                  type: integer    
             
       responses:
         '200':
@@ -301,6 +342,34 @@ paths:
         - $ref: '#/components/parameters/requestHeader'
         - $ref: '#/components/parameters/urlParam'
       description: Lets a user delete a student
+      
+      requestBody:
+        description: provision request body
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: integer
+                  description: Students id
+                bedhseet:
+                  type: integer
+                  description: number of bedhseets
+                pillow:
+                  type: integer
+                  description: number of pillows
+                towel:
+                  type: integer
+                  description: number of towels
+                blanket:
+                  type: integer
+                  description: number of blankets
+                curtain:      
+                  type: integer    
+    
+    
             
       responses:
         '200':
@@ -329,19 +398,19 @@ paths:
               type: object
               properties:
                 id:
-                  type: string
+                  type: integer
                   description: room id
                 room:
-                  type: string
+                  type: integer
                   description: room number
                 chairs:
-                  type: string
+                  type: integer
                   description: number of chairs
                 tables:
-                  type: string
+                  type: integer
                   description: number of tables
                 shelves:
-                  type: string
+                  type: integer
                   description: number of blankets
               
       responses:
@@ -388,19 +457,19 @@ paths:
               type: object
               properties:
                 id:
-                  type: string
+                  type: integer
                   description: room id
                 room:
-                  type: string
+                  type: integer
                   description: room number
                 chairs:
-                  type: string
+                  type: integer
                   description: number of chairs
                 tables:
-                  type: string
+                  type: integer
                   description: number of tables
                 shelves:
-                  type: string
+                  type: integer
                   description: number of blankets
           
       responses:
@@ -420,6 +489,31 @@ paths:
         - $ref: '#/components/parameters/urlParam'
         - $ref: '#/components/parameters/requestHeader'
       description: Lets a user delete a room
+          
+      requestBody:
+        description: put request body for room
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: integer
+                  description: room id
+                room:
+                  type: integer
+                  description: room number
+                chairs:
+                  type: integer
+                  description: number of chairs
+                tables:
+                  type: integer
+                  description: number of tables
+                shelves:
+                  type: integer
+                  description: number of blankets
+                    
           
       responses:
         '200':
@@ -447,7 +541,7 @@ paths:
               type: object
               properties:
                 id:
-                  type: string
+                  type: integer
                   description: worker id
                 firstname:
                   type: string
