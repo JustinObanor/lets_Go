@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi"
+	"github.com/go-chi/cors"
 )
 
 func main() {
@@ -23,6 +24,14 @@ func main() {
 	r.Post("/signup", SignUpUser(*db))
 
 	r.Middlewares()
+
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		AllowCredentials: true,
+		MaxAge:           300,
+	}))
 
 	r.Route("/student", func(r chi.Router) {
 		r.Post("/", CreateStudent(*db))

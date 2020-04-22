@@ -4,9 +4,9 @@ go 1.13
 
 require (
 	github.com/go-chi/chi v4.0.3+incompatible
+	github.com/go-chi/cors v1.1.1
 	github.com/go-redis/redis v6.15.7+incompatible
 	github.com/golang/protobuf v1.3.4 // indirect
-	github.com/gorilla/sessions v1.2.0
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/lib/pq v1.3.0
 	github.com/onsi/ginkgo v1.10.1 // indirect
