@@ -21,7 +21,6 @@ func main() {
 	}
 
 	r := chi.NewRouter()
-	r.Post("/signup", SignUpUser(*db))
 
 	r.Middlewares()
 
@@ -32,6 +31,8 @@ func main() {
 		AllowCredentials: true,
 		MaxAge:           300,
 	}))
+
+	r.Post("/signup", SignUpUser(*db))
 
 	r.Route("/student", func(r chi.Router) {
 		r.Post("/", CreateStudent(*db))
