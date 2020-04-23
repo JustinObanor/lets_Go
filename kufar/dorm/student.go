@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi"
@@ -132,7 +133,18 @@ func SignUpUser(d Database) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		w.Write([]byte(http.StatusText(http.StatusOK) + ": signup passed"))
+		id, err := d.getCredUUID(cred.Username)
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not get id.", http.StatusInternalServerError)
+			return
+		}
+
+		var b strings.Builder
+		b.WriteString("Your UUID is [")
+		b.WriteString(strconv.Itoa(id))
+		b.WriteString("]")
+
+		w.Write([]byte(http.StatusText(http.StatusOK) + ": signup passed. Unique id " + b.String()))
 	}
 }
 
@@ -147,7 +159,7 @@ func CreateStudent(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		var st Student
 		if err := json.NewDecoder(r.Body).Decode(&st); err != nil {
-			http.Error(w, http.StatusText(http.StatusBadRequest)+": eror unmarshalling json", http.StatusBadRequest)
+			http.Error(w, http.StatusText(http.StatusBadRequest)+": error unmarshalling json", http.StatusBadRequest)
 			return
 		}
 

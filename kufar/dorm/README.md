@@ -63,7 +63,6 @@ If credentials are correct, there should be a place where user can input -
             "ID": 0,
             "Firstname": "string",
             "Lastname": "string",
-            "Date": "string",
             "UUID": 0,
             "StudRoom": {
                 "id": 0,
@@ -183,8 +182,6 @@ Basic oWVzflDrjRHBVuH0I=
             "ID": 1,
             "Firstname": "string",
             "Lastname": "string",
-            "Date": "string",
-            "UUID": 1,
             "StudRoom": {
                 "id": 1,
                 "room": 0

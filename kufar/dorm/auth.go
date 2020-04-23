@@ -36,6 +36,21 @@ func (d Database) getBookUserID(bookID int) (int, error) {
 	return userID, nil
 }
 
+func (d Database) getCredUUID(uname string) (int, error) {
+	row := d.db.QueryRow("select uuid from credentials where username = $1", uname)
+
+	var userID int
+	err := row.Scan(&userID)
+
+	switch {
+	case err == sql.ErrNoRows:
+		return 0, err
+	case err != nil:
+		return 0, err
+	}
+	return userID, nil
+}
+
 //CheckAuth ...
 func (d Database) CheckAuth(header *http.Header) (int, bool) {
 	cred := header.Get("Authorization")

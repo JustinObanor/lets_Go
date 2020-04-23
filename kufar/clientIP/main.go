@@ -25,7 +25,7 @@ func get(s string) (count int, body string) {
 
 	doc, _ := goquery.NewDocumentFromReader(resp.Body)
 
-	return count, doc.Find("div.row.string span").AddBack().Text()
+	return count, doc.Find("div.ipchecker").Text()
 }
 
 func main() {
