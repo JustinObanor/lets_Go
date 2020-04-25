@@ -2,7 +2,9 @@ package main
 
 import (
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"strconv"
@@ -145,6 +147,49 @@ func SignUpUser(d Database) func(w http.ResponseWriter, r *http.Request) {
 		b.WriteString("]")
 
 		w.Write([]byte(http.StatusText(http.StatusOK) + ": signup passed. Unique id " + b.String()))
+	}
+}
+
+//Login ...
+func LogIn(d Database) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		credReq := CredentialsRequest{}
+		if err := json.NewDecoder(r.Body).Decode(&credReq); err != nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError)+": error unmarshalling json", http.StatusInternalServerError)
+			return
+		}
+
+		if credReq.Username == "" && credReq.Password == "" {
+			http.Error(w, http.StatusText(http.StatusInternalServerError)+": missing username or password", http.StatusInternalServerError)
+			return
+		}
+
+		row := d.db.QueryRow("select username, password from credentials where username = $1", credReq.Username)
+
+		dbCred := Credentials{}
+		err := row.Scan(&dbCred.Username, &dbCred.Password)
+
+		switch {
+		case err == sql.ErrNoRows:
+			http.Error(w, http.StatusText(http.StatusInternalServerError)+": something went wrong", http.StatusInternalServerError)
+			return
+		case err != nil:
+			http.Error(w, http.StatusText(http.StatusUnauthorized)+": no such user", http.StatusUnauthorized)
+			return
+		}
+
+		var b strings.Builder
+		b.WriteString(credReq.Username)
+		b.WriteString(":")
+		b.WriteString(credReq.Password)
+
+		token := base64.StdEncoding.EncodeToString([]byte(b.String()))
+
+		b.Reset()
+		b.WriteString("Basic ")
+		b.WriteString(token)
+
+		fmt.Println(b.String())
 	}
 }
 

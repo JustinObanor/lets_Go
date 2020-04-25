@@ -1,21 +1,9 @@
 package main
 
-import (
-	"fmt"
-	"sync"
-)
+type age = int
 
 func main() {
-	var wg sync.WaitGroup
-
-	x := []int{1, 5, 3, 2, 6, 8, 9, 7, 5}
-
-	wg.Add(len(x))
-	for _, v := range x {
-		go func(i int) {
-			defer wg.Done()
-			fmt.Println(i)
-		}(v)
-	}
-	wg.Wait()
+	var a age = 19
+	var x int = a * 12
+	_ = x
 }

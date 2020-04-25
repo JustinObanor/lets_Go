@@ -33,7 +33,7 @@ func main() {
 	}))
 
 	r.Post("/signup", SignUpUser(*db))
-
+	r.Post("/login", LogIn(*db))
 	r.Route("/student", func(r chi.Router) {
 		r.Post("/", CreateStudent(*db))
 		r.Get("/", ReadStudents(*db))
