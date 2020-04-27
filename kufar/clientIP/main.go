@@ -14,20 +14,16 @@ const (
 	site2 = "https://geoip.nekudo.com"
 )
 
-var count int
-
-func get(s string) (count int, body string) {
+func get(s string) string {
 	resp, err := http.Get(s)
 	if err != nil {
-		return 0, err.Error()
+		return err.Error()
 	}
 	defer resp.Body.Close()
 
-	count++
-
 	doc, _ := goquery.NewDocumentFromReader(resp.Body)
 
-	return count, doc.Find("div.ipchecker").Text()
+	return doc.Find("div.ipchecker").Text()
 }
 
 func get2(s string) {
@@ -41,8 +37,8 @@ func get2(s string) {
 }
 
 func main() {
-	_, b := get(site1)
-	fmt.Println(b)
+
+	fmt.Println(get(site1))
 
 	get2(site1)
 }
