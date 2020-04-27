@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/gocolly/colly"
 )
 
 const (
@@ -28,7 +30,19 @@ func get(s string) (count int, body string) {
 	return count, doc.Find("div.ipchecker").Text()
 }
 
+func get2(s string) {
+	c := colly.NewCollector()
+
+	log.Println(c.Visit(site1))
+	c.OnHTML(`div.ipchecker`, func(e *colly.HTMLElement) {
+		fmt.Println(e.ChildText(`.ip`))
+		fmt.Println(e.ChildText(`div.row.string`))
+	})
+}
+
 func main() {
 	_, b := get(site1)
 	fmt.Println(b)
+
+	get2(site1)
 }
