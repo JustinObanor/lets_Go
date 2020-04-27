@@ -2,49 +2,69 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/gocolly/colly"
 )
 
 const (
-	site1 = "https://ipstack.com/"
-	site2 = "https://geoip.nekudo.com"
+	site1 = "https://ifconfig.me/"
+	site2 = "https://2ip.ru/"
 )
 
-func get(s string) string {
+func getBody(s string) (io.ReadCloser, error) {
 	client := &http.Client{
 		Timeout: 5 * time.Second,
 	}
 
 	resp, err := client.Get(s)
 	if err != nil {
-		return err.Error()
+		return nil, err
 	}
 
-	defer resp.Body.Close()
-
-	doc, _ := goquery.NewDocumentFromReader(resp.Body)
-
-	return doc.Find("div.ipchecker").Text()
+	return resp.Body, nil
 }
 
-func get2(s string) {
-	c := colly.NewCollector()
+func getSite1(s string) string {
 
-	log.Println(c.Visit(site1))
-	c.OnHTML(`div.ipchecker`, func(e *colly.HTMLElement) {
-		fmt.Println(e.ChildText(`.ip`))
-		fmt.Println(e.ChildText(`div.row.string`))
-	})
+	resp, err := getBody(s)
+	if err != nil{
+		return err.Error()
+	}
+	defer resp.Close()
+
+	b, err := ioutil.ReadAll(resp)
+	if err != nil {
+		return err.Error()
+	}
+	return string(b)
+}
+
+func getSite2(s string) string {
+	resp, err := getBody(s)
+	if err != nil{
+		return err.Error()
+	}
+	defer resp.Close()
+
+	doc, err := goquery.NewDocumentFromReader(resp)
+	if err != nil {
+		return err.Error()
+	}
+	/*
+	big#d_clip_button
+	div.ip > d_clip_button
+	div.ip-info
+	*/
+
+	return doc.Find("div.-info").Text()
 }
 
 func main() {
+	fmt.Println(getSite1(site1))
+	fmt.Println(getSite1(site2))
 
-	fmt.Println(get(site1))
-
-	get2(site1)
 }
