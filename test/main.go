@@ -1,9 +1,21 @@
 package main
 
-type age = int
+import "fmt"
 
 func main() {
-	var a age = 19
-	var x int = a * 12
-	_ = x
+
+	count := 0
+	for i := 1; i <= 50; i++ {
+		if i%7 != 0 { // if i is not divisible by 7
+			continue
+		}
+		fmt.Printf("%d ", i)
+		count++
+
+		if count == 3 { // if i've already found 3 numbers, then break
+			break
+		}
+
+	}
+	fmt.Println("")
 }

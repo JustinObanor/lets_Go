@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/gocolly/colly"
@@ -15,10 +16,15 @@ const (
 )
 
 func get(s string) string {
-	resp, err := http.Get(s)
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+	}
+
+	resp, err := client.Get(s)
 	if err != nil {
 		return err.Error()
 	}
+
 	defer resp.Body.Close()
 
 	doc, _ := goquery.NewDocumentFromReader(resp.Body)
