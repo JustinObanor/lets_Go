@@ -77,6 +77,19 @@ type CredentialsRequest struct {
 	Password string `json:"password"`
 }
 
+type CredentialsResponse struct {
+	Status   int    `json:"status"`
+	UUID     int    `json:"uuid"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+//Login ...
+type Login struct {
+	Status int    `json:"status"`
+	Token  string `json:"token"`
+}
+
 //FloorCodeResReq ...
 type FloorCodeResReq struct {
 	Floor int `json:"floor"`
@@ -131,6 +144,7 @@ func SignUpUser(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		cred := Credentials{Username: credReq.Username}
 		if _, err = d.db.Exec("insert into credentials(username, password) values($1, $2)", cred.Username, string(pword)); err != nil {
+			fmt.Println("err", err)
 			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not log in user. Username already exists", http.StatusInternalServerError)
 			return
 		}
@@ -141,12 +155,18 @@ func SignUpUser(d Database) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		var b strings.Builder
-		b.WriteString("Your UUID is [")
-		b.WriteString(strconv.Itoa(id))
-		b.WriteString("]")
+		credRes := CredentialsResponse{
+			Status:   http.StatusOK,
+			UUID:     id,
+			Username: credReq.Username,
+			Password: credReq.Password,
+		}
 
-		w.Write([]byte(http.StatusText(http.StatusOK) + ": signup passed. Unique id " + b.String()))
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(credRes); err != nil {
+			http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+			return
+		}
 	}
 }
 
@@ -194,7 +214,16 @@ func LogIn(d Database) func(w http.ResponseWriter, r *http.Request) {
 		b.WriteString("Basic ")
 		b.WriteString(token)
 
-		fmt.Fprintln(w, b.String())
+		login := Login{
+			Status: http.StatusOK,
+			Token:  b.String(),
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(login); err != nil {
+			http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+			return
+		}
 	}
 }
 
