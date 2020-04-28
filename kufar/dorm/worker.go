@@ -53,7 +53,7 @@ func CreateWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if userID != wk.ID && userID != 0 {
+		if userID != wk.ID {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte(http.StatusText(http.StatusUnauthorized) + ": you dont have access to this resource"))
 			return
@@ -186,7 +186,7 @@ func UpdateWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if userID != bkUserID && userID != 0 {
+		if userID != bkUserID {
 			http.Error(w, http.StatusText(http.StatusInternalServerError)+": stop right there criminal scum!", http.StatusInternalServerError)
 			return
 		}
@@ -253,7 +253,7 @@ func DeleteWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if userID != bkUserID && userID != 0 {
+		if userID != bkUserID {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte(http.StatusText(http.StatusUnauthorized) + ": you dont have access to this resource"))
 			return

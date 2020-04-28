@@ -42,7 +42,7 @@ func CreateRoom(d Database) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if userID != rm.ID && userID != 0 {
+		if userID != rm.ID {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte(http.StatusText(http.StatusUnauthorized) + ": you dont have access to this resource"))
 			return
@@ -154,7 +154,7 @@ func UpdateRoom(d Database) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if userID != bkUserID && userID != 0 {
+		if userID != bkUserID {
 			http.Error(w, http.StatusText(http.StatusInternalServerError)+": stop right there criminal scum!", http.StatusInternalServerError)
 			return
 		}
@@ -208,7 +208,7 @@ func DeleteRoom(d Database) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if userID != bkUserID && userID != 0 {
+		if userID != bkUserID {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte(http.StatusText(http.StatusUnauthorized) + ": you dont have access to this resource"))
 			return

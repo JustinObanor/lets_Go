@@ -77,6 +77,7 @@ type CredentialsRequest struct {
 	Password string `json:"password"`
 }
 
+//CredentialsResponse ...
 type CredentialsResponse struct {
 	Status   int    `json:"status"`
 	UUID     int    `json:"uuid"`
@@ -144,7 +145,6 @@ func SignUpUser(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		cred := Credentials{Username: credReq.Username}
 		if _, err = d.db.Exec("insert into credentials(username, password) values($1, $2)", cred.Username, string(pword)); err != nil {
-			fmt.Println("err", err)
 			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not log in user. Username already exists", http.StatusInternalServerError)
 			return
 		}
@@ -244,7 +244,7 @@ func CreateStudent(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		now := time.Now().UTC()
 
-		if userID != st.UUID && userID != 0 {
+		if userID != st.UUID {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte(http.StatusText(http.StatusUnauthorized) + ": you dont have access to this resource"))
 			return
@@ -428,7 +428,7 @@ func UpdateStudent(d Database, c Cache) func(w http.ResponseWriter, r *http.Requ
 			return
 		}
 
-		if userID != bkUserID && userID != 0 {
+		if userID != bkUserID {
 			http.Error(w, http.StatusText(http.StatusInternalServerError)+": stop right there criminal scum!", http.StatusInternalServerError)
 			return
 		}
@@ -495,11 +495,11 @@ func DeleteStudent(d Database, c Cache) func(w http.ResponseWriter, r *http.Requ
 
 		bkUserID, err := d.getBookUserID(idInt)
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not convert to integer", http.StatusInternalServerError)
+			http.Error(w, http.StatusText(http.StatusInternalServerError)+": cant verify authority", http.StatusInternalServerError)
 			return
 		}
 
-		if userID != bkUserID && userID != 0 {
+		if userID != bkUserID {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte(http.StatusText(http.StatusUnauthorized) + ": you dont have access to this resource"))
 			return

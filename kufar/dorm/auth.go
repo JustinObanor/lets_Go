@@ -91,9 +91,6 @@ func (d Database) CheckAuth(header *http.Header) (int, bool) {
 	}
 
 	if err = bcrypt.CompareHashAndPassword([]byte(dbCred.Password), []byte(creds[1])); err != nil {
-		if creds[0] == "admin" && creds[1] == "admin" {
-			return 0, true
-		}
 		return 0, false
 	}
 

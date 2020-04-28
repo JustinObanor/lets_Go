@@ -44,7 +44,7 @@ func CreateProvision(d Database) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if userID != pr.ID && userID != 0 {
+		if userID != pr.ID {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte(http.StatusText(http.StatusUnauthorized) + ": you dont have access to this resource"))
 			return
@@ -157,7 +157,7 @@ func UpdateProvision(d Database) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if userID != bkUserID && userID != 0 {
+		if userID != bkUserID {
 			http.Error(w, http.StatusText(http.StatusInternalServerError)+": stop right there criminal scum!", http.StatusInternalServerError)
 			return
 		}
@@ -213,7 +213,7 @@ func DeleteProvision(d Database) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if userID != bkUserID && userID != 0 {
+		if userID != bkUserID {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte(http.StatusText(http.StatusUnauthorized) + ": you dont have access to this resource"))
 			return
