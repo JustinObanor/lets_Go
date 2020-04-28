@@ -150,7 +150,7 @@ func SignUpUser(d Database) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-//Login ...
+//LogIn ...
 func LogIn(d Database) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		credReq := CredentialsRequest{}
@@ -171,10 +171,15 @@ func LogIn(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		switch {
 		case err == sql.ErrNoRows:
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": something went wrong", http.StatusInternalServerError)
+			http.Error(w, http.StatusText(http.StatusInternalServerError)+": user missing", http.StatusInternalServerError)
 			return
 		case err != nil:
 			http.Error(w, http.StatusText(http.StatusUnauthorized)+": no such user", http.StatusUnauthorized)
+			return
+		}
+
+		if err = bcrypt.CompareHashAndPassword([]byte(dbCred.Password), []byte(credReq.Password)); err != nil {
+			http.Error(w, http.StatusText(http.StatusUnauthorized)+": wrong credentials", http.StatusUnauthorized)
 			return
 		}
 
@@ -189,7 +194,7 @@ func LogIn(d Database) func(w http.ResponseWriter, r *http.Request) {
 		b.WriteString("Basic ")
 		b.WriteString(token)
 
-		fmt.Println(b.String())
+		fmt.Fprintln(w, b.String())
 	}
 }
 

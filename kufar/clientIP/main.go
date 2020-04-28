@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -13,6 +14,7 @@ import (
 const (
 	site1 = "https://ifconfig.me/"
 	site2 = "https://2ip.ru/"
+	site3 = "https://ipapi.com/"
 )
 
 func getBody(s string) (io.ReadCloser, error) {
@@ -60,11 +62,12 @@ func getSite2(s string) string {
 	div.ip-info
 	*/
 
-	return doc.Find("div.-info").Text()
+	return strings.TrimSpace(doc.Find("div.ip_demo").Text())
 }
 
 func main() {
 	fmt.Println(getSite1(site1))
-	fmt.Println(getSite1(site2))
+	//fmt.Println(getSite2(site2))
+	fmt.Println(getSite2(site3))
 
 }
