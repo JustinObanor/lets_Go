@@ -2,18 +2,14 @@ package main
 
 import (
 	"database/sql"
-	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/go-chi/chi"
 	"github.com/go-redis/redis"
-	"golang.org/x/crypto/bcrypt"
 
 	_ "github.com/lib/pq"
 )
@@ -44,13 +40,6 @@ type StudFloor struct {
 	ID, Floor int
 }
 
-//Credentials ...
-type Credentials struct {
-	UUID     int
-	Username string
-	Password string
-}
-
 //StudentRequest ...
 type StudentRequest struct {
 	ID        int       `json:"id"`
@@ -69,25 +58,6 @@ type StudentResponse struct {
 	UUID      int       `json:"uuid"`
 	StudRoom  StudRoom  `json:"studroom"`
 	StudFloor StudFloor `json:"studfloor"`
-}
-
-//CredentialsRequest ...
-type CredentialsRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
-type CredentialsResponse struct {
-	Status   int    `json:"status"`
-	UUID     int    `json:"uuid"`
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
-//Login ...
-type Login struct {
-	Status int    `json:"status"`
-	Token  string `json:"token"`
 }
 
 //FloorCodeResReq ...
@@ -122,111 +92,6 @@ func convertToResponse(s Student) StudentResponse {
 	}
 }
 
-//SignUpUser ...
-func SignUpUser(d Database) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		credReq := CredentialsRequest{}
-		if err := json.NewDecoder(r.Body).Decode(&credReq); err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": error unmarshalling json", http.StatusInternalServerError)
-			return
-		}
-
-		if credReq.Username == "" && credReq.Password == "" {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": missing username or password", http.StatusInternalServerError)
-			return
-		}
-
-		pword, err := bcrypt.GenerateFromPassword([]byte(credReq.Password), cost)
-		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not add password", http.StatusInternalServerError)
-			return
-		}
-
-		cred := Credentials{Username: credReq.Username}
-		if _, err = d.db.Exec("insert into credentials(username, password) values($1, $2)", cred.Username, string(pword)); err != nil {
-			fmt.Println("err", err)
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not log in user. Username already exists", http.StatusInternalServerError)
-			return
-		}
-
-		id, err := d.getCredUUID(cred.Username)
-		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not get id.", http.StatusInternalServerError)
-			return
-		}
-
-		credRes := CredentialsResponse{
-			Status:   http.StatusOK,
-			UUID:     id,
-			Username: credReq.Username,
-			Password: credReq.Password,
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(credRes); err != nil {
-			http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
-			return
-		}
-	}
-}
-
-//LogIn ...
-func LogIn(d Database) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		credReq := CredentialsRequest{}
-		if err := json.NewDecoder(r.Body).Decode(&credReq); err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": error unmarshalling json", http.StatusInternalServerError)
-			return
-		}
-
-		if credReq.Username == "" && credReq.Password == "" {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": missing username or password", http.StatusInternalServerError)
-			return
-		}
-
-		row := d.db.QueryRow("select username, password from credentials where username = $1", credReq.Username)
-
-		dbCred := Credentials{}
-		err := row.Scan(&dbCred.Username, &dbCred.Password)
-
-		switch {
-		case err == sql.ErrNoRows:
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": user missing", http.StatusInternalServerError)
-			return
-		case err != nil:
-			http.Error(w, http.StatusText(http.StatusUnauthorized)+": no such user", http.StatusUnauthorized)
-			return
-		}
-
-		if err = bcrypt.CompareHashAndPassword([]byte(dbCred.Password), []byte(credReq.Password)); err != nil {
-			http.Error(w, http.StatusText(http.StatusUnauthorized)+": wrong credentials", http.StatusUnauthorized)
-			return
-		}
-
-		var b strings.Builder
-		b.WriteString(credReq.Username)
-		b.WriteString(":")
-		b.WriteString(credReq.Password)
-
-		token := base64.StdEncoding.EncodeToString([]byte(b.String()))
-
-		b.Reset()
-		b.WriteString("Basic ")
-		b.WriteString(token)
-
-		login := Login{
-			Status: http.StatusOK,
-			Token:  b.String(),
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(login); err != nil {
-			http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
-			return
-		}
-	}
-}
-
 //CreateStudent ...
 func CreateStudent(d Database) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -244,9 +109,20 @@ func CreateStudent(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		now := time.Now().UTC()
 
-		if userID != st.UUID && userID != 0 {
-			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte(http.StatusText(http.StatusUnauthorized) + ": you dont have access to this resource"))
+		AdminID, err := d.getCredUUID("admin")
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError)+": cant get id", http.StatusInternalServerError)
+			return
+		}
+
+		WorkerID, err := d.getCredUUID("worker")
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError)+": cant get id", http.StatusInternalServerError)
+			return
+		}
+
+		if userID != st.UUID && userID != AdminID && userID != WorkerID {
+			http.Error(w, http.StatusText(http.StatusInternalServerError)+": stop right there criminal scum!", http.StatusInternalServerError)
 			return
 		}
 
@@ -428,7 +304,19 @@ func UpdateStudent(d Database, c Cache) func(w http.ResponseWriter, r *http.Requ
 			return
 		}
 
-		if userID != bkUserID && userID != 0 {
+		AdminID, err := d.getCredUUID("admin")
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError)+": cant get id", http.StatusInternalServerError)
+			return
+		}
+
+		WorkerID, err := d.getCredUUID("worker")
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError)+": cant get id", http.StatusInternalServerError)
+			return
+		}
+
+		if userID != bkUserID && userID != AdminID && userID != WorkerID {
 			http.Error(w, http.StatusText(http.StatusInternalServerError)+": stop right there criminal scum!", http.StatusInternalServerError)
 			return
 		}
@@ -495,13 +383,24 @@ func DeleteStudent(d Database, c Cache) func(w http.ResponseWriter, r *http.Requ
 
 		bkUserID, err := d.getBookUserID(idInt)
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not convert to integer", http.StatusInternalServerError)
+			http.Error(w, http.StatusText(http.StatusInternalServerError)+": cant verify authority", http.StatusInternalServerError)
 			return
 		}
 
-		if userID != bkUserID && userID != 0 {
-			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte(http.StatusText(http.StatusUnauthorized) + ": you dont have access to this resource"))
+		AdminID, err := d.getCredUUID("admin")
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError)+": cant get id", http.StatusInternalServerError)
+			return
+		}
+
+		WorkerID, err := d.getCredUUID("worker")
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError)+": cant get id", http.StatusInternalServerError)
+			return
+		}
+
+		if userID != bkUserID && userID != AdminID && userID != WorkerID {
+			http.Error(w, http.StatusText(http.StatusInternalServerError)+": stop right there criminal scum!", http.StatusInternalServerError)
 			return
 		}
 

@@ -22,8 +22,6 @@ func main() {
 
 	r := chi.NewRouter()
 
-	r.Middlewares()
-
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
