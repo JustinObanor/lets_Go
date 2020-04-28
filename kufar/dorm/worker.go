@@ -53,7 +53,19 @@ func CreateWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if userID != wk.ID {
+		AdminID, err := d.getCredUUID("admin")
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError)+": cant get id", http.StatusInternalServerError)
+			return
+		}
+
+		WorkerID, err := d.getCredUUID("worker")
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError)+": cant get id", http.StatusInternalServerError)
+			return
+		}
+
+		if userID != wk.ID && AdminID != userID && WorkerID != userID {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte(http.StatusText(http.StatusUnauthorized) + ": you dont have access to this resource"))
 			return
@@ -186,7 +198,19 @@ func UpdateWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if userID != bkUserID {
+		AdminID, err := d.getCredUUID("admin")
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError)+": cant get id", http.StatusInternalServerError)
+			return
+		}
+
+		WorkerID, err := d.getCredUUID("worker")
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError)+": cant get id", http.StatusInternalServerError)
+			return
+		}
+
+		if userID != bkUserID && userID != AdminID && userID != WorkerID {
 			http.Error(w, http.StatusText(http.StatusInternalServerError)+": stop right there criminal scum!", http.StatusInternalServerError)
 			return
 		}
@@ -253,9 +277,20 @@ func DeleteWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if userID != bkUserID {
-			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte(http.StatusText(http.StatusUnauthorized) + ": you dont have access to this resource"))
+		AdminID, err := d.getCredUUID("admin")
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError)+": cant get id", http.StatusInternalServerError)
+			return
+		}
+
+		WorkerID, err := d.getCredUUID("worker")
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError)+": cant get id", http.StatusInternalServerError)
+			return
+		}
+
+		if userID != bkUserID && userID != AdminID && userID != WorkerID {
+			http.Error(w, http.StatusText(http.StatusInternalServerError)+": stop right there criminal scum!", http.StatusInternalServerError)
 			return
 		}
 
