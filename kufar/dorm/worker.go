@@ -77,7 +77,7 @@ func CreateWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if _, err := d.db.Exec("insert into worker(id, firstname, lastname, workfloor, workdays) values($1, $2, $3, $4, $5)", wk.ID, wk.Firstname, wk.Lastname, string(workfloor), wk.WorkDays); err != nil {
+		if _, err := d.db.Exec("insert into worker(firstname, lastname, workfloor, workdays) values($1, $2, $3, $4)", wk.Firstname, wk.Lastname, string(workfloor), wk.WorkDays); err != nil {
 			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not add new provision. Try changing id", http.StatusInternalServerError)
 			return
 		}

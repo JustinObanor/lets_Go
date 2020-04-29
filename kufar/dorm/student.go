@@ -138,10 +138,11 @@ func CreateStudent(d Database) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if _, err := d.db.Exec("insert into student(id, firstname, lastname, date, uuid, studroom, studfloor) values($1, $2, $3, $4, $5, $6, $7)", st.ID, st.Firstname, st.Lastname, now, st.UUID, string(sroom), string(sfloor)); err != nil {
+		if _, err := d.db.Exec("insert into student(firstname, lastname, date, uuid, studroom, studfloor) values($1, $2, $3, $4, $5, $6)", st.Firstname, st.Lastname, now, st.UUID, string(sroom), string(sfloor)); err != nil {
 			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not add new student. Try changing id", http.StatusInternalServerError)
 			return
 		}
+
 		w.Write([]byte(http.StatusText(http.StatusOK) + ": created student"))
 	}
 }

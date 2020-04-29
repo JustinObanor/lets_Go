@@ -60,7 +60,7 @@ func CreateRoom(d Database) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if _, err := d.db.Exec("insert into room(id, room, chairs, tables, shelves) values($1, $2, $3, $4, $5)", rm.ID, rm.Room, rm.Chairs, rm.Tables, rm.Shelves); err != nil {
+		if _, err := d.db.Exec("insert into room(room, chairs, tables, shelves) values($1, $2, $3, $4)",  rm.Room, rm.Chairs, rm.Tables, rm.Shelves); err != nil {
 			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not add new room. Try changing id", http.StatusInternalServerError)
 			return
 		}
