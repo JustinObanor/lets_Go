@@ -73,6 +73,13 @@ type Cache interface {
 	Remove(string) error
 }
 
+//Response ...
+type Response struct {
+	Status  int    `json:"status"`
+	Message string `json:"message"`
+	Error   error  `json:"error"`
+}
+
 func getenv(key, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value
@@ -97,53 +104,140 @@ func CreateStudent(d Database) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, valid := d.CheckAuth(&r.Header)
 		if !valid {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": invalid creds", http.StatusInternalServerError)
+			res := Response{
+				Status:  http.StatusUnauthorized,
+				Message: "invalid creds",
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
 		var st Student
 		if err := json.NewDecoder(r.Body).Decode(&st); err != nil {
-			http.Error(w, http.StatusText(http.StatusBadRequest)+": error unmarshalling json", http.StatusBadRequest)
+			res := Response{
+				Status:  http.StatusBadRequest,
+				Message: "error marshalling json",
+				Error:   err,
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
-		now := time.Now().UTC()
-
 		AdminID, err := d.getCredUUID("admin")
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": cant get id", http.StatusInternalServerError)
+			res := Response{
+				Status:  http.StatusInternalServerError,
+				Message: "cant get admin id",
+				Error:   err,
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
 		WorkerID, err := d.getCredUUID("worker")
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": cant get id", http.StatusInternalServerError)
+			res := Response{
+				Status:  http.StatusInternalServerError,
+				Message: "cant get worker id",
+				Error:   err,
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
 		if userID != st.UUID && userID != AdminID && userID != WorkerID {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": stop right there criminal scum!", http.StatusInternalServerError)
+			res := Response{
+				Status:  http.StatusUnauthorized,
+				Message: "stop right there criminal scum!",
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
 		sroom, err := json.Marshal(st.StudRoom)
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not add new student. Try changing id", http.StatusInternalServerError)
+			res := Response{
+				Status:  http.StatusBadRequest,
+				Message: "could not add new student room",
+				Error:   err,
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
 		sfloor, err := json.Marshal(st.StudFloor)
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not add new student. Try changing id", http.StatusInternalServerError)
+			res := Response{
+				Status:  http.StatusBadRequest,
+				Message: "could not add new student floor",
+				Error:   err,
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
+
+		now := time.Now().UTC()
 
 		if _, err := d.db.Exec("insert into student(firstname, lastname, date, uuid, studroom, studfloor) values($1, $2, $3, $4, $5, $6)", st.Firstname, st.Lastname, now, st.UUID, string(sroom), string(sfloor)); err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not add new student. Try changing id", http.StatusInternalServerError)
+			res := Response{
+				Status:  http.StatusInternalServerError,
+				Message: "could not add new student",
+				Error:   err,
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
-		w.Write([]byte(http.StatusText(http.StatusOK) + ": created student"))
+		res := Response{
+			Status:  http.StatusOK,
+			Message: "created student " + st.Firstname,
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(res); err != nil {
+			http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+			return
+		}
 	}
 }
 
@@ -152,7 +246,17 @@ func ReadStudents(d Database) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rows, err := d.db.Query("select id, firstname, lastname, date, uuid ,studroom, studfloor from student order by id asc")
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not list students", http.StatusInternalServerError)
+			res := Response{
+				Status:  http.StatusInternalServerError,
+				Message: "could not list students",
+				Error:   err,
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 		defer rows.Close()
@@ -165,17 +269,47 @@ func ReadStudents(d Database) func(w http.ResponseWriter, r *http.Request) {
 			std := Student{}
 
 			if err := rows.Scan(&std.ID, &std.Firstname, &std.Lastname, &std.Date, &std.UUID, &sroom, &sfloor); err != nil {
-				http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not scan db", http.StatusInternalServerError)
+				res := Response{
+					Status:  http.StatusInternalServerError,
+					Message: "could not scan db",
+					Error:   err,
+				}
+
+				w.Header().Set("Content-Type", "application/json")
+				if err := json.NewEncoder(w).Encode(res); err != nil {
+					http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+					return
+				}
 				return
 			}
 
 			if err = json.Unmarshal([]byte(sroom), &std.StudRoom); err != nil {
-				http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not scan db", http.StatusInternalServerError)
+				res := Response{
+					Status:  http.StatusInternalServerError,
+					Message: "could not scan db",
+					Error:   err,
+				}
+
+				w.Header().Set("Content-Type", "application/json")
+				if err := json.NewEncoder(w).Encode(res); err != nil {
+					http.Error(w, http.StatusText(http.StatusInternalServerError)+": error marshalling json", http.StatusBadRequest)
+					return
+				}
 				return
 			}
 
 			if err = json.Unmarshal([]byte(sfloor), &std.StudFloor); err != nil {
-				http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not scan db", http.StatusInternalServerError)
+				res := Response{
+					Status:  http.StatusInternalServerError,
+					Message: "could not scan db",
+					Error:   err,
+				}
+
+				w.Header().Set("Content-Type", "application/json")
+				if err := json.NewEncoder(w).Encode(res); err != nil {
+					http.Error(w, http.StatusText(http.StatusInternalServerError)+": error marshalling json", http.StatusBadRequest)
+					return
+				}
 				return
 			}
 
@@ -189,7 +323,7 @@ func ReadStudents(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(resps); err != nil {
-			http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+			http.Error(w, http.StatusText(http.StatusInternalServerError)+": error marshalling json", http.StatusBadRequest)
 			return
 		}
 	}
@@ -228,40 +362,99 @@ func ReadStudent(d Database, c Cache) func(w http.ResponseWriter, r *http.Reques
 		id := chi.URLParam(r, "id")
 
 		if id == "" {
-			http.Error(w, http.StatusText(http.StatusBadRequest)+": missing parameter in url", http.StatusBadRequest)
+			res := Response{
+				Status:  http.StatusBadRequest,
+				Message: "missing parameter in url",
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
 		idInt, err := strconv.Atoi(id)
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not convert to integer", http.StatusInternalServerError)
+			res := Response{
+				Status:  http.StatusInternalServerError,
+				Message: "could not convert to integer",
+				Error:   err,
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusInternalServerError)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
-		st, err := c.Get(id)
-
 		sroom, sfloor := "", ""
 
+		st, err := c.Get(id)
 		if err != nil {
 			row := d.db.QueryRow("select id, firstname, lastname, date, uuid ,studroom, studfloor from student where id = $1", idInt)
 
 			err = row.Scan(&st.ID, &st.Firstname, &st.Lastname, &st.Date, &st.UUID, &sroom, &sfloor)
 			switch {
 			case err == sql.ErrNoRows:
-				http.NotFound(w, r)
+				res := Response{
+					Status:  http.StatusNotFound,
+					Message: "no such student",
+					Error:   err,
+				}
+
+				w.Header().Set("Content-Type", "application/json")
+				if err := json.NewEncoder(w).Encode(res); err != nil {
+					http.Error(w, http.StatusText(http.StatusInternalServerError)+": error marshalling json", http.StatusBadRequest)
+					return
+				}
 				return
+
 			case err != nil:
-				http.Error(w, http.StatusText(http.StatusInternalServerError)+": error scanning db", http.StatusInternalServerError)
+				res := Response{
+					Status:  http.StatusBadRequest,
+					Message: "could not scan db",
+					Error:   err,
+				}
+
+				w.Header().Set("Content-Type", "application/json")
+				if err := json.NewEncoder(w).Encode(res); err != nil {
+					http.Error(w, http.StatusText(http.StatusInternalServerError)+": error marshalling json", http.StatusBadRequest)
+					return
+				}
 				return
 			}
 
 			if err = json.Unmarshal([]byte(sroom), &st.StudRoom); err != nil {
-				http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not scan db", http.StatusInternalServerError)
+				res := Response{
+					Status:  http.StatusInternalServerError,
+					Message: "error unmarshelling json",
+					Error:   err,
+				}
+
+				w.Header().Set("Content-Type", "application/json")
+				if err := json.NewEncoder(w).Encode(res); err != nil {
+					http.Error(w, http.StatusText(http.StatusInternalServerError)+": error marshalling json", http.StatusBadRequest)
+					return
+				}
 				return
 			}
 
 			if err = json.Unmarshal([]byte(sfloor), &st.StudFloor); err != nil {
-				http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not scan db", http.StatusInternalServerError)
+				res := Response{
+					Status:  http.StatusInternalServerError,
+					Message: "error unmarshelling json",
+					Error:   err,
+				}
+
+				w.Header().Set("Content-Type", "application/json")
+				if err := json.NewEncoder(w).Encode(res); err != nil {
+					http.Error(w, http.StatusText(http.StatusInternalServerError)+": error marshalling json", http.StatusBadRequest)
+					return
+				}
 				return
 			}
 			c.Set(id, &st)
@@ -283,48 +476,126 @@ func UpdateStudent(d Database, c Cache) func(w http.ResponseWriter, r *http.Requ
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, valid := d.CheckAuth(&r.Header)
 		if !valid {
+			res := Response{
+				Status:  http.StatusUnauthorized,
+				Message: "invalid creds",
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
 		id := chi.URLParam(r, "id")
 
 		if id == "" {
-			http.Error(w, http.StatusText(http.StatusBadRequest)+": missing parameter in url", http.StatusBadRequest)
+			res := Response{
+				Status:  http.StatusBadRequest,
+				Message: "missing parameter in url",
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
 		idInt, err := strconv.Atoi(id)
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not convert to integer", http.StatusInternalServerError)
+			res := Response{
+				Status:  http.StatusInternalServerError,
+				Message: "could not convert to integer",
+				Error:   err,
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusInternalServerError)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
 		bkUserID, err := d.getBookUserID(idInt)
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not convert to integer", http.StatusInternalServerError)
+			res := Response{
+				Status:  http.StatusInternalServerError,
+				Message: "could not get id",
+				Error:   err,
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusInternalServerError)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
 		AdminID, err := d.getCredUUID("admin")
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": cant get id", http.StatusInternalServerError)
+			res := Response{
+				Status:  http.StatusInternalServerError,
+				Message: "could not admin id",
+				Error:   err,
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusInternalServerError)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
 		WorkerID, err := d.getCredUUID("worker")
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": cant get id", http.StatusInternalServerError)
+			res := Response{
+				Status:  http.StatusInternalServerError,
+				Message: "could not worker id",
+				Error:   err,
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusInternalServerError)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
 		if userID != bkUserID && userID != AdminID && userID != WorkerID {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": stop right there criminal scum!", http.StatusInternalServerError)
+			res := Response{
+				Status:  http.StatusUnauthorized,
+				Message: "stop right there criminal scum!",
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
 		var stReq StudentRequest
 		if err := json.NewDecoder(r.Body).Decode(&stReq); err != nil {
-			http.Error(w, http.StatusText(http.StatusBadRequest)+": error unmarshalling json", http.StatusBadRequest)
+			res := Response{
+				Status:  http.StatusBadRequest,
+				Message: "error unmarshalling json",
+				Error:   err,
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusInternalServerError)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
@@ -338,18 +609,47 @@ func UpdateStudent(d Database, c Cache) func(w http.ResponseWriter, r *http.Requ
 
 		sroom, err := json.Marshal(st.StudRoom)
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not add new student. Try changing id", http.StatusInternalServerError)
+			res := Response{
+				Status:  http.StatusInternalServerError,
+				Message: "could not scan db",
+				Error:   err,
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusInternalServerError)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
 		sfloor, err := json.Marshal(st.StudFloor)
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not add new student. Try changing id", http.StatusInternalServerError)
+			res := Response{
+				Status:  http.StatusInternalServerError,
+				Message: "could not scan db",
+				Error:   err,
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusInternalServerError)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
 		if _, err = d.db.Exec("update student set id = $1, firstname = $2, lastname = $3, studroom = $4, studfloor = $5 where id = $1", idInt, st.Firstname, st.Lastname, string(sroom), string(sfloor)); err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": cant update student", http.StatusInternalServerError)
+			res := Response{
+				Status:  http.StatusInternalServerError,
+				Message: "cant update student",
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
@@ -357,7 +657,16 @@ func UpdateStudent(d Database, c Cache) func(w http.ResponseWriter, r *http.Requ
 			return
 		}
 
-		w.Write([]byte(http.StatusText(http.StatusOK) + ": updated student"))
+		res := Response{
+			Status:  http.StatusOK,
+			Message: "updated student " + st.Firstname,
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(res); err != nil {
+			http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+			return
+		}
 	}
 }
 
@@ -366,53 +675,124 @@ func DeleteStudent(d Database, c Cache) func(w http.ResponseWriter, r *http.Requ
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, valid := d.CheckAuth(&r.Header)
 		if !valid {
+			res := Response{
+				Status:  http.StatusUnauthorized,
+				Message: "invalid creds",
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
 		id := chi.URLParam(r, "id")
 
 		if id == "" {
-			http.Error(w, http.StatusText(http.StatusBadRequest)+": missing parameter in url", http.StatusBadRequest)
+			res := Response{
+				Status:  http.StatusBadRequest,
+				Message: "missing parameter in url",
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
 		idInt, err := strconv.Atoi(id)
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not convert to integer", http.StatusInternalServerError)
+			res := Response{
+				Status:  http.StatusInternalServerError,
+				Message: "could not convert to integer",
+				Error:   err,
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusInternalServerError)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
 		bkUserID, err := d.getBookUserID(idInt)
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": cant verify authority", http.StatusInternalServerError)
+			res := Response{
+				Status:  http.StatusInternalServerError,
+				Message: "could not get user id",
+				Error:   err,
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusInternalServerError)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
 		AdminID, err := d.getCredUUID("admin")
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": cant get id", http.StatusInternalServerError)
+			res := Response{
+				Status:  http.StatusInternalServerError,
+				Message: "could not get admin id",
+				Error:   err,
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusInternalServerError)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
 		WorkerID, err := d.getCredUUID("worker")
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": cant get id", http.StatusInternalServerError)
+			res := Response{
+				Status:  http.StatusInternalServerError,
+				Message: "could not get worker id",
+				Error:   err,
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusInternalServerError)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
 		if userID != bkUserID && userID != AdminID && userID != WorkerID {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": stop right there criminal scum!", http.StatusInternalServerError)
-			return
-		}
+			res := Response{
+				Status:  http.StatusUnauthorized,
+				Message: "stop right there criminal scum!",
+			}
 
-		var st Student
-		if err := json.NewDecoder(r.Body).Decode(&st); err != nil {
-			http.Error(w, http.StatusText(http.StatusBadRequest)+": Error unmarshalling json", http.StatusBadRequest)
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
 		if _, err = d.db.Exec("delete from student where id = $1", idInt); err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not delete student", http.StatusInternalServerError)
+			res := Response{
+				Status:  http.StatusInternalServerError,
+				Message: "cant delete student",
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
@@ -420,6 +800,15 @@ func DeleteStudent(d Database, c Cache) func(w http.ResponseWriter, r *http.Requ
 			return
 		}
 
-		w.Write([]byte(http.StatusText(http.StatusOK) + ": deleted student"))
+		res := Response{
+			Status:  http.StatusOK,
+			Message: "deleted student of id " + id,
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(res); err != nil {
+			http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+			return
+		}
 	}
 }

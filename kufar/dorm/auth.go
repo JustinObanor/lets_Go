@@ -133,35 +133,84 @@ func SignUpUser(d Database) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		credReq := CredentialsRequest{}
 		if err := json.NewDecoder(r.Body).Decode(&credReq); err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": error unmarshalling json", http.StatusInternalServerError)
+			res := Response{
+				Status:  http.StatusBadRequest,
+				Message: "error marshalling json",
+				Error:   err,
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
 		if credReq.Username == "" && credReq.Password == "" {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": missing username or password", http.StatusInternalServerError)
+			res := Response{
+				Status:  http.StatusBadRequest,
+				Message: "missing username and/or password",
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
 		pword, err := bcrypt.GenerateFromPassword([]byte(credReq.Password), cost)
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not add password", http.StatusInternalServerError)
+			res := Response{
+				Status:  http.StatusInternalServerError,
+				Message: "could not add password",
+				Error:   err,
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
 		cred := Credentials{Username: credReq.Username}
 		if _, err = d.db.Exec("insert into credentials(username, password) values($1, $2)", cred.Username, string(pword)); err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not log in user. Username already exists", http.StatusInternalServerError)
+			res := Response{
+				Status:  http.StatusInternalServerError,
+				Message: "could not log in user " + cred.Username,
+				Error:   err,
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
 		id, err := d.getCredUUID(cred.Username)
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not get id.", http.StatusInternalServerError)
+			res := Response{
+				Status:  http.StatusInternalServerError,
+				Message: "could not user id",
+				Error:   err,
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusInternalServerError)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
 		credRes := CredentialsResponse{
-			Message:   http.StatusOK,
+			Message:  http.StatusOK,
 			UUID:     id,
 			Username: credReq.Username,
 			Password: credReq.Password,
@@ -180,12 +229,31 @@ func LogIn(d Database) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		credReq := CredentialsRequest{}
 		if err := json.NewDecoder(r.Body).Decode(&credReq); err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": error unmarshalling json", http.StatusInternalServerError)
+			res := Response{
+				Status:  http.StatusBadRequest,
+				Message: "error marshalling json",
+				Error:   err,
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
 		if credReq.Username == "" && credReq.Password == "" {
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": missing username or password", http.StatusInternalServerError)
+			res := Response{
+				Status:  http.StatusBadRequest,
+				Message: "missing username and/or password",
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
@@ -196,15 +264,46 @@ func LogIn(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		switch {
 		case err == sql.ErrNoRows:
-			http.Error(w, http.StatusText(http.StatusInternalServerError)+": user missing", http.StatusInternalServerError)
+		case err == sql.ErrNoRows:
+			res := Response{
+				Status:  http.StatusNotFound,
+				Message: "no such user",
+				Error:   err,
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusInternalServerError)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
+
 		case err != nil:
-			http.Error(w, http.StatusText(http.StatusUnauthorized)+": no such user", http.StatusUnauthorized)
+			res := Response{
+				Status:  http.StatusBadRequest,
+				Message: "could not scan db",
+				Error:   err,
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusInternalServerError)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
 		if err = bcrypt.CompareHashAndPassword([]byte(dbCred.Password), []byte(credReq.Password)); err != nil {
-			http.Error(w, http.StatusText(http.StatusUnauthorized)+": wrong credentials", http.StatusUnauthorized)
+			res := Response{
+				Status:  http.StatusUnauthorized,
+				Message: "wrong creds",
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
 			return
 		}
 
