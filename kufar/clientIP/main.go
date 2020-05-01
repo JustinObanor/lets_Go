@@ -2,7 +2,11 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"net"
 	"net/http"
+
+	geo "github.com/oschwald/geoip2-golang"
 )
 
 func IP(r *http.Request) string {
@@ -18,33 +22,26 @@ func IP(r *http.Request) string {
 	return IPAddress
 }
 
+func Country(ip string) string {
+	db, err := geo.Open("GeoLite2-Country.mmdb")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	country, err := db.Country(net.ParseIP(ip))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return country.Country.Names["en"]
+
+}
+
 func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println(IP(r))
+		country := Country(IP(r))
+		fmt.Println(country)
 	})
 	http.ListenAndServe(":8080", nil)
 }
-
-// geo "github.com/oschwald/geoip2-golang"
-// func Country(ip net.IP) string{
-// 	db, err := geo.Open("GeoLite2-Country.mmdb")
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-// 	defer db.Close()
-
-// 	 IP := net.ParseIP(ip)
-// 	// record, err := db.City(IP)
-// 	// if err != nil {
-// 	// 	log.Fatal(err)
-// 	// }
-
-//93.84.161.105
-//192.168.100.10
-// 	country, err := db.Country(net.ParseIP(IP))
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-
-// 	return country.Country.Names["en"]
-// }
