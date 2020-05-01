@@ -148,6 +148,7 @@ func SignUpUser(d Database) func(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if credReq.Username == "" && credReq.Password == "" {
+			w.WriteHeader(http.StatusBadRequest)
 			res := Response{
 				Status:  http.StatusBadRequest,
 				Message: "missing username and/or password",
@@ -179,6 +180,7 @@ func SignUpUser(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		cred := Credentials{Username: credReq.Username}
 		if _, err = d.db.Exec("insert into credentials(username, password) values($1, $2)", cred.Username, string(pword)); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			res := Response{
 				Status:  http.StatusInternalServerError,
 				Message: "could not log in user " + cred.Username,
@@ -197,7 +199,7 @@ func SignUpUser(d Database) func(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			res := Response{
 				Status:  http.StatusInternalServerError,
-				Message: "could not user id",
+				Message: "could not get user id",
 				Error:   err,
 			}
 
@@ -244,6 +246,7 @@ func LogIn(d Database) func(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if credReq.Username == "" && credReq.Password == "" {
+			w.WriteHeader(http.StatusBadRequest)
 			res := Response{
 				Status:  http.StatusBadRequest,
 				Message: "missing username and/or password",
@@ -263,7 +266,6 @@ func LogIn(d Database) func(w http.ResponseWriter, r *http.Request) {
 		err := row.Scan(&dbCred.Username, &dbCred.Password)
 
 		switch {
-		case err == sql.ErrNoRows:
 		case err == sql.ErrNoRows:
 			res := Response{
 				Status:  http.StatusNotFound,
