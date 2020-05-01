@@ -2,69 +2,49 @@ package main
 
 import (
 	"fmt"
-	"io"
-	"io/ioutil"
 	"net/http"
-	"strings"
-	"time"
-	"unicode"
-
-	"github.com/PuerkitoBio/goquery"
 )
 
-const (
-	site1 = "https://ifconfig.me/"
-	site2 = "https://2ip.ru/"
-)
+func IP(r *http.Request) string {
+	IPAddress := r.Header.Get("X-Real-Ip")
 
-func getBody(s string) (io.ReadCloser, error) {
-	client := &http.Client{
-		Timeout: 5 * time.Second,
+	if IPAddress == "" {
+		IPAddress += r.Header.Get("x-forwarded-for")
+	}
+	if IPAddress == "" {
+		IPAddress += r.RemoteAddr
 	}
 
-	resp, err := client.Get(s)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp.Body, nil
-}
-
-func getSite1(s string) string {
-	resp, err := getBody(s)
-	if err != nil {
-		return err.Error()
-	}
-	defer resp.Close()
-
-	b, err := ioutil.ReadAll(resp)
-	if err != nil {
-		return err.Error()
-	}
-	return string(b)
-}
-
-func getSite2(s string) string {
-	resp, err := getBody(s)
-	if err != nil {
-		return err.Error()
-	}
-	defer resp.Close()
-
-	doc, err := goquery.NewDocumentFromReader(resp)
-	if err != nil {
-		return err.Error()
-	}
-
-	ip := strings.FieldsFunc(doc.Find("div.ip-info-entry").Text(), func(c rune) bool {
-		return unicode.IsLetter(c) || !unicode.IsNumber(c)
-	})
-
-	return strings.Join(ip[0:4], ".")
+	return IPAddress
 }
 
 func main() {
-	fmt.Println(getSite1(site1))
-	fmt.Println(getSite2(site2))
-
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println(IP(r))
+	})
+	http.ListenAndServe(":8080", nil)
 }
+
+// geo "github.com/oschwald/geoip2-golang"
+// func Country(ip net.IP) string{
+// 	db, err := geo.Open("GeoLite2-Country.mmdb")
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+// 	defer db.Close()
+
+// 	 IP := net.ParseIP(ip)
+// 	// record, err := db.City(IP)
+// 	// if err != nil {
+// 	// 	log.Fatal(err)
+// 	// }
+
+//93.84.161.105
+//192.168.100.10
+// 	country, err := db.Country(net.ParseIP(IP))
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+
+// 	return country.Country.Names["en"]
+// }

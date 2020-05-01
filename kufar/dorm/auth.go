@@ -38,6 +38,7 @@ type Login struct {
 	Token   string `json:"token"`
 	Role    string `json:"role"`
 	Rights  bool   `json:"rights"`
+	UUID    int    `json:"uuid"`
 }
 
 // StupidMiddleware ...
@@ -323,6 +324,22 @@ func LogIn(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		var login Login
 
+		id, err := d.getCredUUID(dbCred.Username)
+		if err != nil {
+			res := Response{
+				Status:  http.StatusInternalServerError,
+				Message: "could not get user id",
+				Error:   err,
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusInternalServerError)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
+			return
+		}
+
 		login.Login = dbCred.Username
 		login.Message = http.StatusOK
 		login.Token = b.String()
@@ -337,6 +354,7 @@ func LogIn(d Database) func(w http.ResponseWriter, r *http.Request) {
 			login.Role += "student"
 			login.Rights = false
 		}
+		login.UUID = id
 
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(login); err != nil {
