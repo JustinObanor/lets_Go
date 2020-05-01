@@ -294,6 +294,7 @@ func LogIn(d Database) func(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if err = bcrypt.CompareHashAndPassword([]byte(dbCred.Password), []byte(credReq.Password)); err != nil {
+			w.WriteHeader(http.StatusUnauthorized)
 			res := Response{
 				Status:  http.StatusUnauthorized,
 				Message: "wrong creds",
