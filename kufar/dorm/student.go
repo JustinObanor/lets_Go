@@ -796,6 +796,20 @@ func DeleteStudent(d Database, c Cache) func(w http.ResponseWriter, r *http.Requ
 			return
 		}
 
+		if _, err = d.db.Exec("delete from credentials where uuid = $1", bkUserID); err != nil {
+			res := Response{
+				Status:  http.StatusInternalServerError,
+				Message: "cant delete student creds",
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
+			return
+		}
+
 		if err := c.Remove(id); err != nil {
 			return
 		}

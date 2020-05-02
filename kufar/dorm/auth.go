@@ -268,6 +268,7 @@ func LogIn(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		switch {
 		case err == sql.ErrNoRows:
+			w.WriteHeader(http.StatusNotFound)
 			res := Response{
 				Status:  http.StatusNotFound,
 				Message: "no such user",
