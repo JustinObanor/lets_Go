@@ -4,7 +4,7 @@ services:
   app:  
     build: 
       context: .
-      dockerfile: Dockerfile
+      dockerfile: go.Dockerfile
     image: books_app  
     container_name: go
     ports: 
@@ -12,6 +12,17 @@ services:
     depends_on: 
       - postgres
       - redis
+  
+  node:  
+    build: 
+      context: .
+      dockerfile: node.Dockerfile
+    image: node_app
+    container_name: node
+    ports: 
+      - '4200:4200'
+    depends_on: 
+      - app 
 
   postgres:
     image: postgres
