@@ -43,28 +43,35 @@ func CountryOne(ip string) (string, error) {
 
 func CountryTwo(ip string) (string, error) {
 	u := url.Values{}
-	u.Set("f", ip)
+	u.Set("ipform", ip)
 
-	resp, err := http.PostForm("https://www.google.com/", u)
+	resp, err := http.PostForm("https://www.infobyip.com/", u)
 	if err != nil {
 		return "", err
 	}
-	
+
 	s, _ := ioutil.ReadAll(resp.Body)
 	fmt.Println(string(s))
+
+	// doc, err := goquery.NewDocumentFromReader(resp.Body)
+	// if err != nil {
+	// 	return "", err
+	// }
+
+	// fmt.Println("s", doc.Find("div.yourip").Text())
 
 	return resp.Status, nil
 }
 
 func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		_, err := CountryOne(IP(r))
-		if err != nil {
-			w.Write([]byte(http.StatusText(http.StatusInternalServerError) + err.Error()))
-		}
-		//fmt.Println(country1)
+		// country1, err := CountryOne(IP(r))
+		// if err != nil {
+		// 	w.Write([]byte(http.StatusText(http.StatusInternalServerError) + err.Error()))
+		// }
+		// fmt.Println(country1)
 
-		country2, err := CountryTwo("aeddeawdad")
+		country2, err := CountryTwo("93.84.161.103")
 		if err != nil {
 			w.Write([]byte(http.StatusText(http.StatusInternalServerError) + err.Error()))
 		}

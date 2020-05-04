@@ -46,7 +46,7 @@ Also make a page for error when username already exists
 After signup, the user will see all the available students
 
 
-## Post student
+## Post student 
 This is for making a new student
 We use Basic HTTP Authorization header(Basic + base64)
 
@@ -78,6 +78,58 @@ If credentials are correct, there should be a place where user can input -
 ```
 -url            "https://localhost:8080/student" 
 ```
+
+## Post provision
+```
+{
+  "id": 0,
+  "bedhseet": 0,
+  "pillow": 0,
+  "towel": 0,
+  "blanket": 0,
+  "curtain": 0
+}
+```
+```
+-url            "https://localhost:8080/provision" 
+```
+
+## Post room
+```
+{
+  "id": 0,
+  "room": 0,
+  "chairs": 0,
+  "tables": 0,
+  "shelves": 0
+}
+```
+
+```
+-url            "https://localhost:8080/room" 
+```
+
+## Post worker
+```
+{
+  "id": 0,
+  "firstname": "string",
+  "lastname": "string",
+  "Workfloor": {
+    "id": 0,
+    "Floor": {
+      "id": 0,
+      "code": 0
+    }
+  },
+  "Workdays": "string"
+}
+```
+
+```
+-url            "https://localhost:8080/worker" 
+```
+
 
 User should pass in the id, firstname, lastname.... and then submit it
 
@@ -162,6 +214,47 @@ If student exists, then we see page of student
 -url            "https://localhost:8080/student/1" 
 ```
 
+## Get provision
+```
+{
+  "id": 0,
+  "bedhseet": "string",
+  "pillow": "string",
+  "towel": "string",
+  "blanket": "string",
+  "curtain": "string"
+}
+```
+
+## Get room
+```
+{
+  "id": 0,
+  "room": "string",
+  "chairs": "string",
+  "tables": "string",
+  "shelves": "string"
+}
+```
+
+## Get worker
+```
+{
+  "id": 0,
+  "firstname": "string",
+  "lastname": "string",
+  "Workfloor": {
+    "id": 0,
+    "Floor": {
+      "id": 0,
+      "code": 0
+    }
+  },
+  "Workdays": "string"
+}
+```
+
+
 User should pass in the id
 
 Feel free to add any other design you like
@@ -199,6 +292,45 @@ Basic oWVzflDrjRHBVuH0I=
 
 Feel free to add any other design you like
 
+## Put provision
+```
+{
+  "id": 0,
+  "bedhseet": 0,
+  "pillow": 0,
+  "towel": 0,
+  "blanket": 0,
+  "curtain": 0
+}
+```
+
+## Put room
+```
+{
+  "id": 0,
+  "room": 0,
+  "chairs": 0,
+  "tables": 0,
+  "shelves": 0
+}
+```
+
+## put worker
+```
+{
+  "id": "string",
+  "firstname": "string",
+  "lastname": "string",
+  "Workfloor": {
+    "id": 0,
+    "Floor": {
+      "id": 0,
+      "code": 0
+    }
+  },
+  "Workdays": "string"
+}
+```
 
 
 ## Delete student
