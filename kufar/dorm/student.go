@@ -80,6 +80,14 @@ type Response struct {
 	Error   error  `json:"error"`
 }
 
+//Response ...
+type PostResponse struct {
+	ID int `json:"id"`
+	Status  int    `json:"status"`
+	Message string `json:"message"`
+	Error   error  `json:"error"`
+}
+
 func getenv(key, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value
@@ -104,6 +112,7 @@ func CreateStudent(d Database) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, valid := d.CheckAuth(&r.Header)
 		if !valid {
+			w.WriteHeader(http.StatusUnauthorized)
 			res := Response{
 				Status:  http.StatusUnauthorized,
 				Message: "invalid creds",
@@ -166,6 +175,7 @@ func CreateStudent(d Database) func(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if userID != st.UUID && userID != AdminID && userID != WorkerID {
+			w.WriteHeader(http.StatusUnauthorized)
 			res := Response{
 				Status:  http.StatusUnauthorized,
 				Message: "stop right there criminal scum!",
@@ -227,8 +237,26 @@ func CreateStudent(d Database) func(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		}
+		
+		studID, err := d.getCredUUID(st.Firstname)
+		if err != nil {
+			res := Response{
+				Status:  http.StatusInternalServerError,
+				Message: "cant get stud id",
+				Error:   err,
+			}
 
-		res := Response{
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+				return
+			}
+			return
+		}
+
+
+		res := PostResponse{
+			ID: studID,
 			Status:  http.StatusOK,
 			Message: "created student " + st.Firstname,
 		}
@@ -476,6 +504,7 @@ func UpdateStudent(d Database, c Cache) func(w http.ResponseWriter, r *http.Requ
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, valid := d.CheckAuth(&r.Header)
 		if !valid {
+			w.WriteHeader(http.StatusUnauthorized)
 			res := Response{
 				Status:  http.StatusUnauthorized,
 				Message: "invalid creds",
@@ -570,6 +599,7 @@ func UpdateStudent(d Database, c Cache) func(w http.ResponseWriter, r *http.Requ
 		}
 
 		if userID != bkUserID && userID != AdminID && userID != WorkerID {
+			w.WriteHeader(http.StatusUnauthorized)
 			res := Response{
 				Status:  http.StatusUnauthorized,
 				Message: "stop right there criminal scum!",
@@ -675,6 +705,7 @@ func DeleteStudent(d Database, c Cache) func(w http.ResponseWriter, r *http.Requ
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, valid := d.CheckAuth(&r.Header)
 		if !valid {
+			w.WriteHeader(http.StatusUnauthorized)
 			res := Response{
 				Status:  http.StatusUnauthorized,
 				Message: "invalid creds",
@@ -769,6 +800,7 @@ func DeleteStudent(d Database, c Cache) func(w http.ResponseWriter, r *http.Requ
 		}
 
 		if userID != bkUserID && userID != AdminID && userID != WorkerID {
+			w.WriteHeader(http.StatusUnauthorized)
 			res := Response{
 				Status:  http.StatusUnauthorized,
 				Message: "stop right there criminal scum!",

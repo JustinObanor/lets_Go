@@ -34,6 +34,7 @@ func CreateProvision(d Database) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, valid := d.CheckAuth(&r.Header)
 		if !valid {
+			w.WriteHeader(http.StatusUnauthorized)
 			res := Response{
 				Status:  http.StatusUnauthorized,
 				Message: "invalid creds",
@@ -49,6 +50,7 @@ func CreateProvision(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		var pr StudProvisions
 		if err := json.NewDecoder(r.Body).Decode(&pr); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
 			res := Response{
 				Status:  http.StatusBadRequest,
 				Message: "error marshalling json",
@@ -65,6 +67,7 @@ func CreateProvision(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		AdminID, err := d.getCredUUID("admin")
 		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			res := Response{
 				Status:  http.StatusInternalServerError,
 				Message: "cant get admin id",
@@ -81,6 +84,7 @@ func CreateProvision(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		WorkerID, err := d.getCredUUID("worker")
 		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			res := Response{
 				Status:  http.StatusInternalServerError,
 				Message: "could not get worker id",
@@ -96,6 +100,7 @@ func CreateProvision(d Database) func(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if AdminID != userID && WorkerID != userID {
+			w.WriteHeader(http.StatusUnauthorized)
 			res := Response{
 				Status:  http.StatusUnauthorized,
 				Message: "stop right there criminal scum!",
@@ -132,6 +137,7 @@ func ReadProvisions(d Database) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rows, err := d.db.Query("select id, bedsheet, pillow, towel, blanket, curtain from provisions order by id asc")
 		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			res := Response{
 				Status:  http.StatusInternalServerError,
 				Message: "could not list provisions",
@@ -153,6 +159,7 @@ func ReadProvisions(d Database) func(w http.ResponseWriter, r *http.Request) {
 			pr := StudProvisions{}
 
 			if err := rows.Scan(&pr.ID, &pr.Bedsheet, &pr.Pillow, &pr.Towel, &pr.Blanket, &pr.Curtain); err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
 				res := Response{
 					Status:  http.StatusInternalServerError,
 					Message: "could not scan db",
@@ -184,6 +191,7 @@ func ReadProvision(d Database) func(w http.ResponseWriter, r *http.Request) {
 		id := chi.URLParam(r, "id")
 
 		if id == "" {
+			w.WriteHeader(http.StatusBadRequest)
 			res := Response{
 				Status:  http.StatusBadRequest,
 				Message: "missing parameter in url",
@@ -199,6 +207,7 @@ func ReadProvision(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		idInt, err := strconv.Atoi(id)
 		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			res := Response{
 				Status:  http.StatusInternalServerError,
 				Message: "could not convert to integer",
@@ -220,6 +229,7 @@ func ReadProvision(d Database) func(w http.ResponseWriter, r *http.Request) {
 		err = row.Scan(&pr.ID, &pr.Bedsheet, &pr.Pillow, &pr.Towel, &pr.Blanket, &pr.Curtain)
 		switch {
 		case err == sql.ErrNoRows:
+			w.WriteHeader(http.StatusNotFound)
 			res := Response{
 				Status:  http.StatusNotFound,
 				Message: "no such provision",
@@ -234,6 +244,7 @@ func ReadProvision(d Database) func(w http.ResponseWriter, r *http.Request) {
 			return
 
 		case err != nil:
+			w.WriteHeader(http.StatusBadRequest)
 			res := Response{
 				Status:  http.StatusBadRequest,
 				Message: "could not scan db",
@@ -263,6 +274,7 @@ func UpdateProvision(d Database) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, valid := d.CheckAuth(&r.Header)
 		if !valid {
+			w.WriteHeader(http.StatusUnauthorized)
 			res := Response{
 				Status:  http.StatusUnauthorized,
 				Message: "invalid creds",
@@ -279,6 +291,7 @@ func UpdateProvision(d Database) func(w http.ResponseWriter, r *http.Request) {
 		id := chi.URLParam(r, "id")
 
 		if id == "" {
+			w.WriteHeader(http.StatusBadRequest)
 			res := Response{
 				Status:  http.StatusBadRequest,
 				Message: "missing parameter in url",
@@ -294,6 +307,7 @@ func UpdateProvision(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		idInt, err := strconv.Atoi(id)
 		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			res := Response{
 				Status:  http.StatusInternalServerError,
 				Message: "could not convert to integer",
@@ -310,6 +324,7 @@ func UpdateProvision(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		AdminID, err := d.getCredUUID("admin")
 		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			res := Response{
 				Status:  http.StatusInternalServerError,
 				Message: "could not get admin id",
@@ -326,6 +341,7 @@ func UpdateProvision(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		WorkerID, err := d.getCredUUID("worker")
 		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			res := Response{
 				Status:  http.StatusInternalServerError,
 				Message: "could not get worker id",
@@ -341,6 +357,7 @@ func UpdateProvision(d Database) func(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if WorkerID != userID && AdminID != userID {
+			w.WriteHeader(http.StatusUnauthorized)
 			res := Response{
 				Status:  http.StatusUnauthorized,
 				Message: "stop right there criminal scum!",
@@ -356,6 +373,7 @@ func UpdateProvision(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		prReq := StudProvisionsReqRes{}
 		if err := json.NewDecoder(r.Body).Decode(&prReq); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
 			res := Response{
 				Status:  http.StatusBadRequest,
 				Message: "error unmarshalling json",
@@ -380,6 +398,7 @@ func UpdateProvision(d Database) func(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if _, err = d.db.Exec("update provisions set id = $1, bedsheet = $2, pillow = $3, towel = $4, blanket = $5, curtain = $6 where id = $1", idInt, st.Bedsheet, st.Pillow, st.Towel, st.Blanket, st.Curtain); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			res := Response{
 				Status:  http.StatusInternalServerError,
 				Message: "cant update provision",
@@ -411,6 +430,7 @@ func DeleteProvision(d Database) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, valid := d.CheckAuth(&r.Header)
 		if !valid {
+			w.WriteHeader(http.StatusUnauthorized)
 			res := Response{
 				Status:  http.StatusUnauthorized,
 				Message: "invalid creds",
@@ -427,6 +447,7 @@ func DeleteProvision(d Database) func(w http.ResponseWriter, r *http.Request) {
 		id := chi.URLParam(r, "id")
 
 		if id == "" {
+			w.WriteHeader(http.StatusBadRequest)
 			res := Response{
 				Status:  http.StatusBadRequest,
 				Message: "missing parameter in url",
@@ -442,6 +463,7 @@ func DeleteProvision(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		idInt, err := strconv.Atoi(id)
 		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			res := Response{
 				Status:  http.StatusInternalServerError,
 				Message: "could not convert to integer",
@@ -458,6 +480,7 @@ func DeleteProvision(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		AdminID, err := d.getCredUUID("admin")
 		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			res := Response{
 				Status:  http.StatusInternalServerError,
 				Message: "could not get admin id",
@@ -474,6 +497,7 @@ func DeleteProvision(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		WorkerID, err := d.getCredUUID("worker")
 		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			res := Response{
 				Status:  http.StatusInternalServerError,
 				Message: "could not get worker id",
@@ -489,6 +513,7 @@ func DeleteProvision(d Database) func(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if WorkerID != userID && AdminID != userID {
+			w.WriteHeader(http.StatusUnauthorized)
 			res := Response{
 				Status:  http.StatusUnauthorized,
 				Message: "stop right there criminal scum!",

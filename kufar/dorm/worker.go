@@ -43,6 +43,7 @@ func CreateWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, valid := d.CheckAuth(&r.Header)
 		if !valid {
+			w.WriteHeader(http.StatusUnauthorized)
 			res := Response{
 				Status:  http.StatusUnauthorized,
 				Message: "invalid creds",
@@ -58,6 +59,7 @@ func CreateWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		var wk Worker
 		if err := json.NewDecoder(r.Body).Decode(&wk); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
 			res := Response{
 				Status:  http.StatusBadRequest,
 				Message: "error marshalling json",
@@ -74,6 +76,7 @@ func CreateWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		AdminID, err := d.getCredUUID("admin")
 		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			res := Response{
 				Status:  http.StatusInternalServerError,
 				Message: "cant get admin id",
@@ -90,6 +93,7 @@ func CreateWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		WorkerID, err := d.getCredUUID("worker")
 		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			res := Response{
 				Status:  http.StatusInternalServerError,
 				Message: "could not get worker id",
@@ -105,6 +109,7 @@ func CreateWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if AdminID != userID && WorkerID != userID {
+			w.WriteHeader(http.StatusUnauthorized)
 			res := Response{
 				Status:  http.StatusUnauthorized,
 				Message: "stop right there criminal scum!",
@@ -120,6 +125,7 @@ func CreateWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		workfloor, err := json.Marshal(wk.WorkFloor)
 		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			res := Response{
 				Status:  http.StatusInternalServerError,
 				Message: "could not add new worker",
@@ -135,6 +141,7 @@ func CreateWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if _, err := d.db.Exec("insert into worker(firstname, lastname, workfloor, workdays) values($1, $2, $3, $4)", wk.Firstname, wk.Lastname, string(workfloor), wk.WorkDays); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			res := Response{
 				Status:  http.StatusInternalServerError,
 				Message: "could not add new worker",
@@ -167,6 +174,7 @@ func ReadWorkers(d Database) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rows, err := d.db.Query("select id, firstname, lastname, workfloor, workdays from worker order by id asc")
 		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			res := Response{
 				Status:  http.StatusInternalServerError,
 				Message: "could not list workers",
@@ -190,6 +198,7 @@ func ReadWorkers(d Database) func(w http.ResponseWriter, r *http.Request) {
 			wk := Worker{}
 
 			if err := rows.Scan(&wk.ID, &wk.Firstname, &wk.Lastname, &workfloor, &wk.WorkDays); err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
 				res := Response{
 					Status:  http.StatusInternalServerError,
 					Message: "could not scan db",
@@ -226,6 +235,7 @@ func ReadWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 		id := chi.URLParam(r, "id")
 
 		if id == "" {
+			w.WriteHeader(http.StatusBadRequest)
 			res := Response{
 				Status:  http.StatusBadRequest,
 				Message: "missing parameter in url",
@@ -241,6 +251,7 @@ func ReadWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		idInt, err := strconv.Atoi(id)
 		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			res := Response{
 				Status:  http.StatusInternalServerError,
 				Message: "could not convert to integer",
@@ -264,7 +275,7 @@ func ReadWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 		err = row.Scan(&wk.ID, &wk.Firstname, &wk.Lastname, &workfloor, &wk.WorkDays)
 		switch {
 		case err == sql.ErrNoRows:
-		case err == sql.ErrNoRows:
+			w.WriteHeader(http.StatusNotFound)
 			res := Response{
 				Status:  http.StatusNotFound,
 				Message: "no such worker",
@@ -279,6 +290,7 @@ func ReadWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 			return
 
 		case err != nil:
+			w.WriteHeader(http.StatusBadRequest)
 			res := Response{
 				Status:  http.StatusBadRequest,
 				Message: "could not scan db",
@@ -312,6 +324,7 @@ func UpdateWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, valid := d.CheckAuth(&r.Header)
 		if !valid {
+			w.WriteHeader(http.StatusUnauthorized)
 			res := Response{
 				Status:  http.StatusUnauthorized,
 				Message: "invalid creds",
@@ -328,6 +341,7 @@ func UpdateWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 		id := chi.URLParam(r, "id")
 
 		if id == "" {
+			w.WriteHeader(http.StatusBadRequest)
 			res := Response{
 				Status:  http.StatusBadRequest,
 				Message: "missing parameter in url",
@@ -343,6 +357,7 @@ func UpdateWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		idInt, err := strconv.Atoi(id)
 		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			res := Response{
 				Status:  http.StatusInternalServerError,
 				Message: "could not convert to integer",
@@ -359,6 +374,7 @@ func UpdateWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		AdminID, err := d.getCredUUID("admin")
 		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			res := Response{
 				Status:  http.StatusInternalServerError,
 				Message: "could not get admin id",
@@ -375,6 +391,7 @@ func UpdateWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		WorkerID, err := d.getCredUUID("worker")
 		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			res := Response{
 				Status:  http.StatusInternalServerError,
 				Message: "could not get worker id",
@@ -390,6 +407,7 @@ func UpdateWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if userID != AdminID && userID != WorkerID {
+			w.WriteHeader(http.StatusUnauthorized)
 			res := Response{
 				Status:  http.StatusUnauthorized,
 				Message: "stop right there criminal scum!",
@@ -405,6 +423,7 @@ func UpdateWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		wkReq := WorkerResReq{}
 		if err := json.NewDecoder(r.Body).Decode(&wkReq); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
 			res := Response{
 				Status:  http.StatusBadRequest,
 				Message: "error unmarshalling json",
@@ -440,6 +459,7 @@ func UpdateWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if _, err = d.db.Exec("update worker set id = $1, firstname = $2, lastname = $3, workfloor = $4, workdays = $5 where id = $1", idInt, wk.Firstname, wk.Lastname, string(workfloor), wk.WorkDays); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			res := Response{
 				Status:  http.StatusInternalServerError,
 				Message: "cant update worker",
@@ -471,6 +491,7 @@ func DeleteWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, valid := d.CheckAuth(&r.Header)
 		if !valid {
+			w.WriteHeader(http.StatusUnauthorized)
 			res := Response{
 				Status:  http.StatusUnauthorized,
 				Message: "invalid creds",
@@ -487,6 +508,7 @@ func DeleteWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 		id := chi.URLParam(r, "id")
 
 		if id == "" {
+			w.WriteHeader(http.StatusBadRequest)
 			res := Response{
 				Status:  http.StatusBadRequest,
 				Message: "missing parameter in url",
@@ -502,6 +524,7 @@ func DeleteWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		idInt, err := strconv.Atoi(id)
 		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			res := Response{
 				Status:  http.StatusInternalServerError,
 				Message: "could not convert to integer",
@@ -518,6 +541,7 @@ func DeleteWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		AdminID, err := d.getCredUUID("admin")
 		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			res := Response{
 				Status:  http.StatusInternalServerError,
 				Message: "could not get admin id",
@@ -534,6 +558,7 @@ func DeleteWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		WorkerID, err := d.getCredUUID("worker")
 		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			res := Response{
 				Status:  http.StatusInternalServerError,
 				Message: "could not get worker id",
@@ -549,6 +574,7 @@ func DeleteWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if userID != AdminID && userID != WorkerID {
+			w.WriteHeader(http.StatusUnauthorized)
 			res := Response{
 				Status:  http.StatusUnauthorized,
 				Message: "stop right there criminal scum!",
@@ -563,6 +589,7 @@ func DeleteWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if _, err = d.db.Exec("delete from worker where id = $1", idInt); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			res := Response{
 				Status:  http.StatusInternalServerError,
 				Message: "cant delete worker",
