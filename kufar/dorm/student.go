@@ -82,7 +82,7 @@ type Response struct {
 
 //Response ...
 type PostResponse struct {
-	ID int `json:"id"`
+	ID      int    `json:"id"`
 	Status  int    `json:"status"`
 	Message string `json:"message"`
 	Error   error  `json:"error"`
@@ -224,6 +224,7 @@ func CreateStudent(d Database) func(w http.ResponseWriter, r *http.Request) {
 		now := time.Now().UTC()
 
 		if _, err := d.db.Exec("insert into student(firstname, lastname, date, uuid, studroom, studfloor) values($1, $2, $3, $4, $5, $6)", st.Firstname, st.Lastname, now, st.UUID, string(sroom), string(sfloor)); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			res := Response{
 				Status:  http.StatusInternalServerError,
 				Message: "could not add new student",
@@ -237,8 +238,8 @@ func CreateStudent(d Database) func(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		}
-		
-		studID, err := d.getCredUUID(st.Firstname)
+
+		studID, err := d.getStudentID(st.UUID)
 		if err != nil {
 			res := Response{
 				Status:  http.StatusInternalServerError,
@@ -254,9 +255,8 @@ func CreateStudent(d Database) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-
 		res := PostResponse{
-			ID: studID,
+			ID:      studID,
 			Status:  http.StatusOK,
 			Message: "created student " + st.Firstname,
 		}

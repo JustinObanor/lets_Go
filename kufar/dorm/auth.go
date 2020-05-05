@@ -68,6 +68,21 @@ func (d Database) getBookUserID(bookID int) (int, error) {
 	return userID, nil
 }
 
+func (d Database) getStudentID(uuid int) (int, error) {
+	row := d.db.QueryRow("select id from student where uuid = $1", uuid)
+
+	var userID int
+	err := row.Scan(&userID)
+
+	switch {
+	case err == sql.ErrNoRows:
+		return 0, err
+	case err != nil:
+		return 0, err
+	}
+	return userID, nil
+}
+
 func (d Database) getCredUUID(uname string) (int, error) {
 	row := d.db.QueryRow("select uuid from credentials where username = $1", uname)
 
@@ -134,6 +149,7 @@ func SignUpUser(d Database) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		credReq := CredentialsRequest{}
 		if err := json.NewDecoder(r.Body).Decode(&credReq); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
 			res := Response{
 				Status:  http.StatusBadRequest,
 				Message: "error marshalling json",
@@ -165,6 +181,7 @@ func SignUpUser(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		pword, err := bcrypt.GenerateFromPassword([]byte(credReq.Password), cost)
 		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			res := Response{
 				Status:  http.StatusInternalServerError,
 				Message: "could not add password",
@@ -198,6 +215,7 @@ func SignUpUser(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		id, err := d.getCredUUID(cred.Username)
 		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			res := Response{
 				Status:  http.StatusInternalServerError,
 				Message: "could not get user id",
@@ -232,6 +250,7 @@ func LogIn(d Database) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		credReq := CredentialsRequest{}
 		if err := json.NewDecoder(r.Body).Decode(&credReq); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
 			res := Response{
 				Status:  http.StatusBadRequest,
 				Message: "error marshalling json",
@@ -283,6 +302,7 @@ func LogIn(d Database) func(w http.ResponseWriter, r *http.Request) {
 			return
 
 		case err != nil:
+			w.WriteHeader(http.StatusBadRequest)
 			res := Response{
 				Status:  http.StatusBadRequest,
 				Message: "could not scan db",
@@ -327,6 +347,7 @@ func LogIn(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		id, err := d.getCredUUID(dbCred.Username)
 		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			res := Response{
 				Status:  http.StatusInternalServerError,
 				Message: "could not get user id",
