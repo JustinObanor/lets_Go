@@ -532,7 +532,15 @@ func DeleteProvision(d Database) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		w.Write([]byte(http.StatusText(http.StatusOK) + ": deleted student"))
+		res := Response{
+			Status:  http.StatusOK,
+			Message: "deleted provision of id " + id,
+		}
 
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(res); err != nil {
+			http.Error(w, http.StatusText(http.StatusBadRequest)+": error marshalling json", http.StatusBadRequest)
+			return
+		}
 	}
 }
