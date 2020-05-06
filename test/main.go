@@ -1,21 +1,16 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+	"strings"
+)
 
 func main() {
 
-	count := 0
-	for i := 1; i <= 50; i++ {
-		if i%7 != 0 { // if i is not divisible by 7
-			continue
-		}
-		fmt.Printf("%d ", i)
-		count++
-
-		if count == 3 { // if i've already found 3 numbers, then break
-			break
-		}
-
+	for _, e := range os.Environ() {
+		pair := strings.SplitN(e, "=", 2)
+		fmt.Println(pair[0])
 	}
-	fmt.Println("")
+
 }
