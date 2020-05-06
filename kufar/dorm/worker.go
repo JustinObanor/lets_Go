@@ -32,10 +32,10 @@ type Floor struct {
 // WorkerResReq ...
 type WorkerResReq struct {
 	ID        int       `json:"id"`
-	Firstname string    `json:"firstname"`
-	Lastname  string    `json:"lastname"`
-	WorkFloor WorkFloor `json:"workfloor"`
-	WorkDays  string    `json:"workdays"`
+	Firstname string    `json:"firstName"`
+	Lastname  string    `json:"lastName"`
+	WorkFloor WorkFloor `json:"workFloor"`
+	WorkDays  string    `json:"workDays"`
 }
 
 //CreateWorker ...

@@ -43,21 +43,21 @@ type StudFloor struct {
 //StudentRequest ...
 type StudentRequest struct {
 	ID        int       `json:"id"`
-	FName     string    `json:"firstname"`
-	LName     string    `json:"lastname"`
-	StudRoom  StudRoom  `json:"studroom"`
-	StudFloor StudFloor `json:"studfloor"`
+	FName     string    `json:"firstName"`
+	LName     string    `json:"lastName"`
+	StudRoom  StudRoom  `json:"studRoom"`
+	StudFloor StudFloor `json:"studFloor"`
 }
 
 //StudentResponse ...
 type StudentResponse struct {
 	ID        int       `json:"id"`
-	FName     string    `json:"firstname"`
-	LName     string    `json:"lastname"`
+	FName     string    `json:"firstName"`
+	LName     string    `json:"lastName"`
 	Date      string    `json:"date"`
 	UUID      int       `json:"uuid"`
-	StudRoom  StudRoom  `json:"studroom"`
-	StudFloor StudFloor `json:"studfloor"`
+	StudRoom  StudRoom  `json:"studRoom"`
+	StudFloor StudFloor `json:"studFloor"`
 }
 
 //FloorCodeResReq ...
