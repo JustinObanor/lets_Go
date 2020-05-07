@@ -61,14 +61,14 @@ If credentials are correct, there should be a place where user can input -
 ```
             {
             "ID": 0,
-            "Firstname": "string",
-            "Lastname": "string",
+            "firstName": "string",
+            "lastName": "string",
             "UUID": 0,
-            "StudRoom": {
+            "studRoom": {
                 "id": 0,
                 "room": 0
             },
-            "StudFloor": {
+            "studFloor": {
                 "id": 0,
                 "floor": 0
             }
@@ -113,16 +113,16 @@ If credentials are correct, there should be a place where user can input -
 ```
 {
   "id": 0,
-  "firstname": "string",
-  "lastname": "string",
-  "Workfloor": {
+  "firstName": "string",
+  "lastName": "string",
+  "workFloor": {
     "id": 0,
     "Floor": {
       "floor": 0,
       "code": 0
     }
   },
-  "workdays": "string"
+  "workDays": "string"
 }
 ```
 
@@ -149,15 +149,15 @@ This url list all the students available in the database
 [
             {
             "ID": 1,
-            "Firstname": "string",
-            "Lastname": "string",
-            "Date": "string",
+            "firstName": "string",
+            "lastName": "string",
+            "date": "string",
             "UUID": 1,
-            "StudRoom": {
+            "studRoom": {
                 "id": 1,
                 "room": 0
             },
-            "StudFloor": {
+            "studFloor": {
                 "id": 1,
                 "floor": 0
             }
@@ -165,15 +165,15 @@ This url list all the students available in the database
 
             {
             "ID": 2,
-            "Firstname": "string",
-            "Lastname": "string",
-            "Date": "string",
+            "firstName": "string",
+            "lastName": "string",
+            "date": "string",
             "UUID": 2,
-            "StudRoom": {
+            "studRoom": {
                 "id": 2,
                 "room": 0
             },
-            "StudFloor": {
+            "studFloor": {
                 "id": 2,
                 "floor": 0
             }
@@ -195,15 +195,15 @@ If student exists, then we see page of student
 ```
             {
             "ID": 1,
-            "Firstname": "string",
-            "Lastname": "string",
-            "Date": "string",
+            "firstName": "string",
+            "lastName": "string",
+            "date": "string",
             "UUID": 1,
-            "StudRoom": {
+            "studRoom": {
                 "id": 1,
                 "room": 0
             },
-            "StudFloor": {
+            "studFloor": {
                 "id": 1,
                 "floor": 1
             }
@@ -240,17 +240,17 @@ If student exists, then we see page of student
 ## Get worker
 ```
 {
-  "id": 0,
-  "firstname": "string",
-  "lastname": "string",
-  "Workfloor": {
-    "id": 0,
-    "Floor": {
-      "floor": 0,
-      "code": 0
+  "id": 1,
+  "firstName": "Micheal",
+  "lastName": "Angelo",
+  "workFloor": {
+    "id": 1,
+    "floor": {
+      "floor": 13,
+      "code": 13
     }
   },
-  "workdays": "string"
+  "workDays": "15-10-1999"
 }
 ```
 
@@ -273,13 +273,13 @@ Basic oWVzflDrjRHBVuH0I=
 ```
             {
             "ID": 1,
-            "Firstname": "string",
-            "Lastname": "string",
-            "StudRoom": {
+            "firstName": "string",
+            "lastName": "string",
+            "studRoom": {
                 "id": 1,
                 "room": 0
             },
-            "StudFloor": {
+            "studFloor": {
                 "id": 1,
                 "floor": 1
             }
@@ -319,16 +319,16 @@ Feel free to add any other design you like
 ```
 {
   "id": 0,
-  "firstname": "string",
-  "lastname": "string",
-  "Workfloor": {
+  "firstName": "string",
+  "lastName": "string",
+  "workFloor": {
     "id": 0,
-    "Floor": {
+    "floor": {
       "floor": 0,
       "code": 0
     }
   },
-  "workdays": "string"
+  "workDays": "string"
 }
 ```
 

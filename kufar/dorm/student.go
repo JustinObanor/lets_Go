@@ -23,7 +23,7 @@ var location, _ = time.LoadLocation("Europe/Minsk")
 //Student ...
 type Student struct {
 	ID                  int
-	Firstname, Lastname string
+	FirstName, LastName string
 	Date                time.Time
 	UUID                int
 	StudRoom            StudRoom
@@ -42,28 +42,28 @@ type StudFloor struct {
 
 //StudentRequest ...
 type StudentRequest struct {
-	ID        int       `json:"id"`
-	FName     string    `json:"firstName"`
-	LName     string    `json:"lastName"`
-	StudRoom  StudRoom  `json:"studRoom"`
-	StudFloor StudFloor `json:"studFloor"`
+	ID        int       `json:"ID"`
+	FirstName string    `json:"FirstName"`
+	LastName  string    `json:"LastName"`
+	StudRoom  StudRoom  `json:"StudRoom"`
+	StudFloor StudFloor `json:"StudFloor"`
 }
 
 //StudentResponse ...
 type StudentResponse struct {
-	ID        int       `json:"id"`
-	FName     string    `json:"firstName"`
-	LName     string    `json:"lastName"`
-	Date      string    `json:"date"`
-	UUID      int       `json:"uuid"`
-	StudRoom  StudRoom  `json:"studRoom"`
-	StudFloor StudFloor `json:"studFloor"`
+	ID        int       `json:"ID"`
+	FirstName string    `json:"FirstName"`
+	LastName  string    `json:"LastName"`
+	Date      string    `json:"Date"`
+	UUID      int       `json:"UUID"`
+	StudRoom  StudRoom  `json:"StudRoom"`
+	StudFloor StudFloor `json:"StudFloor"`
 }
 
 //FloorCodeResReq ...
 type FloorCodeResReq struct {
-	Floor int `json:"floor"`
-	Code  int `json:"code"`
+	Floor int `json:"Floor"`
+	Code  int `json:"Code"`
 }
 
 //Cache interface
@@ -75,17 +75,17 @@ type Cache interface {
 
 //Response ...
 type Response struct {
-	Status  int    `json:"status"`
-	Message string `json:"message"`
-	Error   error  `json:"error"`
+	Status  int    `json:"Status"`
+	Message string `json:"Message"`
+	Error   error  `json:"Error"`
 }
 
-//Response ...
+//PostResponse ...
 type PostResponse struct {
-	ID      int    `json:"id"`
-	Status  int    `json:"status"`
-	Message string `json:"message"`
-	Error   error  `json:"error"`
+	ID      int    `json:"ID"`
+	Status  int    `json:"Status"`
+	Message string `json:"Message"`
+	Error   error  `json:"Error"`
 }
 
 func getenv(key, fallback string) string {
@@ -98,8 +98,8 @@ func getenv(key, fallback string) string {
 func convertToResponse(s Student) StudentResponse {
 	return StudentResponse{
 		ID:        s.ID,
-		FName:     s.Firstname,
-		LName:     s.Lastname,
+		FirstName: s.FirstName,
+		LastName:  s.LastName,
 		Date:      s.Date.In(location).Format(time.RFC1123),
 		UUID:      s.UUID,
 		StudRoom:  StudRoom{s.StudRoom.ID, s.StudRoom.Room},
@@ -223,7 +223,7 @@ func CreateStudent(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		now := time.Now().UTC()
 
-		if _, err := d.db.Exec("insert into student(firstname, lastname, date, uuid, studroom, studfloor) values($1, $2, $3, $4, $5, $6)", st.Firstname, st.Lastname, now, st.UUID, string(sroom), string(sfloor)); err != nil {
+		if _, err := d.db.Exec("insert into student(firstname, lastname, date, uuid, studroom, studfloor) values($1, $2, $3, $4, $5, $6)", st.FirstName, st.LastName, now, st.UUID, string(sroom), string(sfloor)); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			res := Response{
 				Status:  http.StatusInternalServerError,
@@ -258,7 +258,7 @@ func CreateStudent(d Database) func(w http.ResponseWriter, r *http.Request) {
 		res := PostResponse{
 			ID:      studID,
 			Status:  http.StatusOK,
-			Message: "created student " + st.Firstname,
+			Message: "created student " + st.FirstName,
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -296,7 +296,7 @@ func ReadStudents(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 			std := Student{}
 
-			if err := rows.Scan(&std.ID, &std.Firstname, &std.Lastname, &std.Date, &std.UUID, &sroom, &sfloor); err != nil {
+			if err := rows.Scan(&std.ID, &std.FirstName, &std.LastName, &std.Date, &std.UUID, &sroom, &sfloor); err != nil {
 				res := Response{
 					Status:  http.StatusInternalServerError,
 					Message: "could not scan db",
@@ -425,7 +425,7 @@ func ReadStudent(d Database, c Cache) func(w http.ResponseWriter, r *http.Reques
 		if err != nil {
 			row := d.db.QueryRow("select id, firstname, lastname, date, uuid ,studroom, studfloor from student where id = $1", idInt)
 
-			err = row.Scan(&st.ID, &st.Firstname, &st.Lastname, &st.Date, &st.UUID, &sroom, &sfloor)
+			err = row.Scan(&st.ID, &st.FirstName, &st.LastName, &st.Date, &st.UUID, &sroom, &sfloor)
 			switch {
 			case err == sql.ErrNoRows:
 				res := Response{
@@ -631,8 +631,8 @@ func UpdateStudent(d Database, c Cache) func(w http.ResponseWriter, r *http.Requ
 
 		st := Student{
 			ID:        stReq.ID,
-			Firstname: stReq.FName,
-			Lastname:  stReq.LName,
+			FirstName: stReq.FirstName,
+			LastName:  stReq.LastName,
 			StudRoom:  stReq.StudRoom,
 			StudFloor: stReq.StudFloor,
 		}
@@ -669,7 +669,7 @@ func UpdateStudent(d Database, c Cache) func(w http.ResponseWriter, r *http.Requ
 			return
 		}
 
-		if _, err = d.db.Exec("update student set id = $1, firstname = $2, lastname = $3, studroom = $4, studfloor = $5 where id = $1", idInt, st.Firstname, st.Lastname, string(sroom), string(sfloor)); err != nil {
+		if _, err = d.db.Exec("update student set id = $1, firstname = $2, lastname = $3, studroom = $4, studfloor = $5 where id = $1", idInt, st.FirstName, st.LastName, string(sroom), string(sfloor)); err != nil {
 			res := Response{
 				Status:  http.StatusInternalServerError,
 				Message: "cant update student",
@@ -689,7 +689,7 @@ func UpdateStudent(d Database, c Cache) func(w http.ResponseWriter, r *http.Requ
 
 		res := Response{
 			Status:  http.StatusOK,
-			Message: "updated student " + st.Firstname,
+			Message: "updated student " + st.FirstName,
 		}
 
 		w.Header().Set("Content-Type", "application/json")

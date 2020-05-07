@@ -12,8 +12,8 @@ import (
 //Worker ...
 type Worker struct {
 	ID        int
-	Firstname string
-	Lastname  string
+	FirstName string
+	LastName  string
 	WorkFloor WorkFloor
 	WorkDays  string
 }
@@ -31,11 +31,11 @@ type Floor struct {
 
 // WorkerResReq ...
 type WorkerResReq struct {
-	ID        int       `json:"id"`
-	Firstname string    `json:"firstName"`
-	Lastname  string    `json:"lastName"`
-	WorkFloor WorkFloor `json:"workFloor"`
-	WorkDays  string    `json:"workDays"`
+	ID        int       `json:"ID"`
+	FirstName string    `json:"FirstName"`
+	LastName  string    `json:"LastName"`
+	WorkFloor WorkFloor `json:"WorkFloor"`
+	WorkDays  string    `json:"WorkDays"`
 }
 
 //CreateWorker ...
@@ -140,7 +140,7 @@ func CreateWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if _, err := d.db.Exec("insert into worker(firstname, lastname, workfloor, workdays) values($1, $2, $3, $4)", wk.Firstname, wk.Lastname, string(workfloor), wk.WorkDays); err != nil {
+		if _, err := d.db.Exec("insert into worker(firstname, lastname, workfloor, workdays) values($1, $2, $3, $4)", wk.FirstName, wk.LastName, string(workfloor), wk.WorkDays); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			res := Response{
 				Status:  http.StatusInternalServerError,
@@ -197,7 +197,7 @@ func ReadWorkers(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 			wk := Worker{}
 
-			if err := rows.Scan(&wk.ID, &wk.Firstname, &wk.Lastname, &workfloor, &wk.WorkDays); err != nil {
+			if err := rows.Scan(&wk.ID, &wk.FirstName, &wk.LastName, &workfloor, &wk.WorkDays); err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				res := Response{
 					Status:  http.StatusInternalServerError,
@@ -272,7 +272,7 @@ func ReadWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		row := d.db.QueryRow("select id, firstname, lastname, workfloor, workdays from worker where id = $1", idInt)
 
-		err = row.Scan(&wk.ID, &wk.Firstname, &wk.Lastname, &workfloor, &wk.WorkDays)
+		err = row.Scan(&wk.ID, &wk.FirstName, &wk.LastName, &workfloor, &wk.WorkDays)
 		switch {
 		case err == sql.ErrNoRows:
 			w.WriteHeader(http.StatusNotFound)
@@ -440,8 +440,8 @@ func UpdateWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 
 		wk := Worker{
 			ID:        wkReq.ID,
-			Firstname: wkReq.Firstname,
-			Lastname:  wkReq.Lastname,
+			FirstName: wkReq.FirstName,
+			LastName:  wkReq.LastName,
 			WorkFloor: WorkFloor{
 				ID: wkReq.WorkFloor.ID,
 				Floor: Floor{
@@ -458,7 +458,7 @@ func UpdateWorker(d Database) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if _, err = d.db.Exec("update worker set id = $1, firstname = $2, lastname = $3, workfloor = $4, workdays = $5 where id = $1", idInt, wk.Firstname, wk.Lastname, string(workfloor), wk.WorkDays); err != nil {
+		if _, err = d.db.Exec("update worker set id = $1, firstname = $2, lastname = $3, workfloor = $4, workdays = $5 where id = $1", idInt, wk.FirstName, wk.LastName, string(workfloor), wk.WorkDays); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			res := Response{
 				Status:  http.StatusInternalServerError,

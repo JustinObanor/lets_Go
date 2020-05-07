@@ -21,12 +21,12 @@ type StudProvisions struct {
 
 //StudProvisionsReqRes ...
 type StudProvisionsReqRes struct {
-	ID       int `json:"id"`
-	Bedsheet int `json:"bedsheet"`
-	Pillow   int `json:"pillow"`
-	Towel    int `json:"towel"`
-	Blanket  int `json:"blanket"`
-	Curtain  int `json:"curtain"`
+	ID       int `json:"ID"`
+	Bedsheet int `json:"Bedsheet"`
+	Pillow   int `json:"Pillow"`
+	Towel    int `json:"Towel"`
+	Blanket  int `json:"Blanket"`
+	Curtain  int `json:"Curtain"`
 }
 
 //CreateProvision ...

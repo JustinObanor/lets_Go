@@ -20,11 +20,11 @@ type RoomItems struct {
 
 //RoomItemsReqRes ...
 type RoomItemsReqRes struct {
-	ID      int `json:"id"`
-	Room    int `json:"room"`
-	Chairs  int `json:"chair"`
-	Tables  int `json:"table"`
-	Shelves int `json:"shelve"`
+	ID      int `json:"ID"`
+	Room    int `json:"Room"`
+	Chairs  int `json:"Chair"`
+	Tables  int `json:"Table"`
+	Shelves int `json:"Shelve"`
 }
 
 //CreateRoom ...
