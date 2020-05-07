@@ -118,11 +118,11 @@ If credentials are correct, there should be a place where user can input -
   "Workfloor": {
     "id": 0,
     "Floor": {
-      "id": 0,
+      "floor": 0,
       "code": 0
     }
   },
-  "Workdays": "string"
+  "workdays": "string"
 }
 ```
 
@@ -246,11 +246,11 @@ If student exists, then we see page of student
   "Workfloor": {
     "id": 0,
     "Floor": {
-      "id": 0,
+      "floor": 0,
       "code": 0
     }
   },
-  "Workdays": "string"
+  "workdays": "string"
 }
 ```
 
@@ -318,17 +318,17 @@ Feel free to add any other design you like
 ## put worker
 ```
 {
-  "id": "string",
+  "id": 0,
   "firstname": "string",
   "lastname": "string",
   "Workfloor": {
     "id": 0,
     "Floor": {
-      "id": 0,
+      "floor": 0,
       "code": 0
     }
   },
-  "Workdays": "string"
+  "workdays": "string"
 }
 ```
 
