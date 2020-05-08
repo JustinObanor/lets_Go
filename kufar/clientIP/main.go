@@ -14,21 +14,6 @@ import (
 	geo "github.com/oschwald/geoip2-golang"
 )
 
-const (
-	ipStack site = "http://api.ipstack.com/"
-	ipAPI   site = "http://api.ipapi.com/api/"
-	geoAPI  site = "geosite"
-	//APIkey ...
-	apiKey string = "APIAccessKey"
-	//Stackkey ...
-	stackKey string = "StackAaccessKey"
-)
-
-var (
-	ipCount    int
-	geoIPCount int
-)
-
 type site string
 
 //Country ...
@@ -46,6 +31,21 @@ type siteSwitcher interface {
 	GeoCountry(string) (string, error)
 	WriteToFile(string, site) error
 }
+
+var (
+	ipCount    int
+	geoIPCount int
+)
+
+const (
+	ipStack site = "http://api.ipstack.com/"
+	ipAPI   site = "http://api.ipapi.com/api/"
+	geoAPI  site = "geosite"
+	//APIkey ...
+	apiKey string = "APIAccessKey"
+	//Stackkey ...
+	stackKey string = "StackAaccessKey"
+)
 
 func ip(r *http.Request) string {
 	IPAddress := r.Header.Get("X-Real-Ip")
