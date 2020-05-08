@@ -15,27 +15,39 @@ import (
 )
 
 const (
-	ipStack = "http://api.ipstack.com/"
-	ipAPI   = "http://api.ipapi.com/api/"
-	//StackAccessKey access key key
-	StackAccessKey
-	//APIAcessKey access key key :D
-	APIAcessKey
+	ipStack site = "http://api.ipstack.com/"
+	ipAPI   site = "http://api.ipapi.com/api/"
+	geoAPI  site = "geosite"
+	//APIkey ...
+	apiKey string = "APIAccessKey"
+	//Stackkey ...
+	stackKey string = "StackAaccessKey"
 )
 
 var (
-	ipStackCount int
-	ipAPICount   int
-	geoIPCount   int
+	ipCount    int
+	geoIPCount int
 )
+
+type site string
 
 //Country ...
 type Country struct {
 	Name string `json:"country_name"`
 }
 
-//IP ...
-func IP(r *http.Request) string {
+type counter struct {
+	site  site
+	count int
+}
+
+type siteSwitcher interface {
+	CountryAPI(string, string) (string, error)
+	GeoCountry(string) (string, error)
+	WriteToFile(string, site) error
+}
+
+func ip(r *http.Request) string {
 	IPAddress := r.Header.Get("X-Real-Ip")
 
 	if IPAddress == "" {
@@ -48,7 +60,7 @@ func IP(r *http.Request) string {
 	return IPAddress
 }
 
-func geoCountry(ip string) (string, error) {
+func (s site) GeoCountry(ip string) (string, error) {
 	db, err := geo.Open("GeoLite2-Country.mmdb")
 	if err != nil {
 		return "", err
@@ -64,9 +76,9 @@ func geoCountry(ip string) (string, error) {
 	return country.Country.Names["en"], nil
 }
 
-func countryAPI(ip string, key string) (string, error) {
+func (s site) CountryAPI(ip string, key string) (string, error) {
 	var b strings.Builder
-	b.WriteString(ipAPI)
+	b.WriteString(string(s))
 	b.WriteString(ip)
 
 	u, err := url.Parse(b.String())
@@ -79,14 +91,14 @@ func countryAPI(ip string, key string) (string, error) {
 		return "", err
 	}
 
-	q.Add("access_key", key)
+	q.Add("access_key", os.Getenv(key))
 	q.Add("format", "1")
 	q.Add("fields", "country_name")
 
 	u.RawQuery = q.Encode()
 
 	client := http.Client{
-		Timeout: 5 * time.Second,
+		Timeout: time.Minute,
 	}
 
 	resp, err := client.Get(u.String())
@@ -102,25 +114,73 @@ func countryAPI(ip string, key string) (string, error) {
 	var country Country
 	if err := json.Unmarshal(bs, &country); err != nil {
 		return "", err
-
 	}
 
+	ipCount++
 	return country.Name, nil
 }
 
-func main() {
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		country1, err := geoCountry(IP(r))
-		if err != nil {
-			w.Write([]byte(http.StatusText(http.StatusInternalServerError) + err.Error()))
+func (s site) WriteToFile(file string) error {
+	data := counter{
+		site:  s,
+		count: ipCount,
+	}
+	if bs, err := json.MarshalIndent(data, "", ""); err == nil {
+		if err := ioutil.WriteFile("clientip", bs, 0666); err != nil {
+			return err
 		}
-		//os.Getenv("StackAccessKey")
-		country2, err := countryAPI(IP(r), os.Getenv("APIAcessKey"))
-		if err != nil {
-			w.Write([]byte(http.StatusText(http.StatusInternalServerError) + err.Error()))
+	}
+	return nil
+}
+
+func switcher(r *http.Request) (string, error) {
+	var err error
+	switch {
+	case ipCount < 5:
+		if country, err := ipAPI.CountryAPI(ip(r), apiKey); err == nil {
+			if err := ipAPI.WriteToFile("clientip"); err != nil {
+				return "", err
+			}
+			return country, nil
 		}
 
-		fmt.Println(country1, country2)
+	case ipCount >= 5 && ipCount < 10:
+		if country, err := ipStack.CountryAPI(ip(r), stackKey); err == nil {
+			if err := ipStack.WriteToFile("clientip"); err != nil {
+				return "", err
+			}
+			return country, nil
+		}
+
+	case ipCount >= 10 && geoIPCount < 5:
+		if country, err := geoAPI.GeoCountry(ip(r)); err == nil {
+			if err := geoAPI.WriteToFile("clientip"); err != nil {
+				return "", err
+			}
+			return country, nil
+		}
+	}
+	return "", err
+}
+
+// func (s site) readFromFile(filename string) string {
+// 	bs, err := ioutil.ReadFile(filename)
+// 	if err != nil {
+// 		return
+// 	}
+
+// 	_ = strings.Split(string(bs), "\n")
+// 	return
+// }
+
+func main() {
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		country, err := switcher(r)
+		if err != nil {
+			w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
+		}
+		fmt.Println(country)
 	})
+
 	http.ListenAndServe(":8080", nil)
 }
