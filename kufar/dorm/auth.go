@@ -68,8 +68,8 @@ func (d Database) getBookUserID(bookID int) (int, error) {
 	return userID, nil
 }
 
-func (d Database) getStudentID(uuid int) (int, error) {
-	row := d.db.QueryRow("select id from student where uuid = $1", uuid)
+func (d Database) getStudentID(fname,lname string) (int, error) {
+	row := d.db.QueryRow("select id from student where firstname = $1 and lastname = $2", fname, lname)
 
 	var userID int
 	err := row.Scan(&userID)

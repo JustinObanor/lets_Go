@@ -22,9 +22,9 @@ type RoomItems struct {
 type RoomItemsReqRes struct {
 	ID      int `json:"ID"`
 	Room    int `json:"Room"`
-	Chairs  int `json:"Chair"`
-	Tables  int `json:"Table"`
-	Shelves int `json:"Shelve"`
+	Chairs  int `json:"Chairs"`
+	Tables  int `json:"Tables"`
+	Shelves int `json:"Shelves"`
 }
 
 //CreateRoom ...

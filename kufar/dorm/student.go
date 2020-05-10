@@ -239,7 +239,7 @@ func CreateStudent(d Database) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		studID, err := d.getStudentID(st.UUID)
+		studID, err := d.getStudentID(st.FirstName, st.LastName)
 		if err != nil {
 			res := Response{
 				Status:  http.StatusInternalServerError,

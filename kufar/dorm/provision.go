@@ -114,7 +114,7 @@ func CreateProvision(d Database) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if _, err := d.db.Exec("insert into provisions(id, bedsheet, pillow, towel, blanket, curtain) values($1, $2, $3, $4, $5, $6)",pr.ID, pr.Bedsheet, pr.Pillow, pr.Towel, pr.Blanket, pr.Curtain); err != nil {
+		if _, err := d.db.Exec("insert into provisions(id, bedsheet, pillow, towel, blanket, curtain) values($1, $2, $3, $4, $5, $6)", pr.ID, pr.Bedsheet, pr.Pillow, pr.Towel, pr.Blanket, pr.Curtain); err != nil {
 			http.Error(w, http.StatusText(http.StatusInternalServerError)+": could not add new provision. Try changing id", http.StatusInternalServerError)
 			return
 		}
