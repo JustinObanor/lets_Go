@@ -1,14 +1,18 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	geo "github.com/oschwald/geoip2-golang"
@@ -183,6 +187,8 @@ func writeToFile(file string, site site) error {
 // }
 
 func main() {
+	log.Print("Server Started")
+
 	db, err := newGeoDB()
 	if err != nil {
 		fmt.Println("cant get db")
@@ -191,6 +197,9 @@ func main() {
 
 	client := newClient()
 	var s switcher
+
+	done := make(chan os.Signal, 1)
+	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		s = siteOne
@@ -224,6 +233,14 @@ func main() {
 		}
 		fmt.Println(c3)
 	})
+
+	<-done
+	log.Print("Server Stopped")
+
+	_, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	log.Print("Server Exited Properly")
 
 	http.ListenAndServe(":8080", nil)
 }
