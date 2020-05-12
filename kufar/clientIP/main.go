@@ -11,41 +11,46 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
 	geo "github.com/oschwald/geoip2-golang"
 )
 
-type site string
-
-//Country ...
+//Country struct to marshall response too
 type Country struct {
 	Name string `json:"country_name"`
 }
 
-type counter struct {
-	site  site
-	count int
+//Provider struct for different providers
+type Provider struct {
+	ip   string
+	site string
+	key  string
 }
 
-type switcher interface {
-	ParseURL(string, site, string) (string, error)
-	GetGeoCountry(*geo.Reader, string) (string, error)
+//Providers interface for switching to external provider based on counter
+type Providers interface {
+	GetAPICountry(client *http.Client) (string, error)
+	GetGeoCountry() (string, error)
 }
 
 var (
-	siteOneTwoCounter int
-	siteThreeCounter  int
-	siteTwoKey        string = os.Getenv("APIAccessKey")
-	siteOneKey        string = os.Getenv("StackAaccessKey")
+	counter int64
+	keyOne  string = os.Getenv("StackAaccessKey")
+	keyTwo  string = os.Getenv("APIAccessKey")
+	mu      sync.RWMutex
 )
 
 const (
-	siteOne   site = "http://api.ipstack.com/"
-	siteTwo   site = "http://api.ipapi.com/api/"
-	siteThree site = "geosite.com"
+	siteOne   = "http://api.ipstack.com/"
+	siteTwo   = "http://api.ipapi.com/api/"
+	siteThree = "geosite.com"
+	filename  = "count.txt"
 )
 
 func newClient() *http.Client {
@@ -75,11 +80,11 @@ func ip(r *http.Request) string {
 	return IPAddress
 }
 
-//ParseURL ...
-func (s site) ParseURL(ip string, site site, key string) (string, error) {
+//GetAPICountry parses the url given and returns country based on provider
+func (p Provider) GetAPICountry(client *http.Client) (string, error) {
 	var b strings.Builder
-	b.WriteString(string(site))
-	b.WriteString(ip)
+	b.WriteString(string(p.site))
+	b.WriteString(p.ip)
 
 	u, err := url.Parse(b.String())
 	if err != nil {
@@ -91,59 +96,12 @@ func (s site) ParseURL(ip string, site site, key string) (string, error) {
 		return "", err
 	}
 
-	q.Add("access_key", key)
+	q.Add("access_key", p.key)
 	q.Add("fields", "country_name")
 
 	u.RawQuery = q.Encode()
-	return u.String(), nil
-}
 
-// func foo(s switcher) {
-// 	s = siteOne
-// 	url, err := s.ParseURL(ip(r), siteOne, siteOneKey)
-// 	if err != nil {
-// 		return
-// 	}
-
-// 	c, err := getAPICountry(client, url)
-// 	if err != nil {
-// 		return
-// 	}
-// 	fmt.Println(c)
-
-// 	s = siteTwo
-// 	url2, err := s.ParseURL(ip(r), siteTwo, siteTwoKey)
-// 	if err != nil {
-// 		return
-// 	}
-
-// 	c2, err := getAPICountry(client, url2)
-// 	if err != nil {
-// 		return
-// 	}
-// 	fmt.Println(c2)
-
-// 	s = siteThree
-// 	c3, err := s.GetGeoCountry(db, ip(r))
-// 	if err != nil {
-// 		return
-// 	}
-// 	fmt.Println(c3)
-// }
-
-//GetGeoCountry ...
-func (s site) GetGeoCountry(db *geo.Reader, ip string) (string, error) {
-	country, err := db.Country(net.ParseIP(ip))
-	if err != nil {
-		return "", err
-	}
-
-	siteThreeCounter++
-	return country.Country.Names["en"], nil
-}
-
-func getAPICountry(client *http.Client, url string) (string, error) {
-	resp, err := client.Get(url)
+	resp, err := client.Get(u.String())
 	if err != nil {
 		return "", err
 	}
@@ -158,37 +116,114 @@ func getAPICountry(client *http.Client, url string) (string, error) {
 		return "", err
 	}
 
-	siteOneTwoCounter++
+	atomic.AddInt64(&counter, 1)
 	return country.Name, nil
 }
 
-func writeToFile(file string, site site) error {
-	data := counter{
-		site:  site,
-		count: siteOneTwoCounter,
+//GetGeoCountry gets the clients country by ip address
+func (p Provider) GetGeoCountry() (string, error) {
+	db, err := newGeoDB()
+	if err != nil {
+		return "", err
 	}
 
-	if bs, err := json.MarshalIndent(data, "", ""); err == nil {
-		if err := ioutil.WriteFile("clientip", bs, 0666); err != nil {
-			return err
-		}
+	country, err := db.Country(net.ParseIP(p.ip))
+	if err != nil {
+		return "", err
+	}
+
+	atomic.AddInt64(&counter, 1)
+	return country.Country.Names["en"], nil
+}
+
+//writeToFile enblaes writing operations to the file after program exists
+func writeToFile(file string) error {
+	if err := ioutil.WriteFile(file, []byte(strconv.Itoa(int(counter))), 0666); err != nil {
+		return err
 	}
 	return nil
 }
 
-// func (s site) readFromFile(filename string) string {
-// 	bs, err := ioutil.ReadFile(filename)
-// 	if err != nil {
-// 		return
-// 	}
+//readFromFile allows us to read from the file and get the current count
+func readFromFile(filename string) (int64, error) {
+	bs, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return 0, err
+	}
 
-// 	_ = strings.Split(string(bs), "\n")
-// 	return
-// }
+	count, err := strconv.Atoi(string(bs))
+	if err != nil {
+		//ignore error log if file is empty
+		return 0, nil
+	}
+
+	return int64(count), nil
+}
+
+//country functions provides a method for switching between three providers
+func country(p Providers, r *http.Request, client *http.Client, file string) (country string, err error) {
+	currCount := atomic.LoadInt64(&counter)
+
+	switch {
+	case currCount >= 0 && currCount < 5:
+		p1 := Provider{
+			ip:   ip(r),
+			site: siteOne,
+			key:  keyOne,
+		}
+
+		p = p1
+
+		if country, err = p.GetAPICountry(client); err == nil {
+			return country, nil
+		}
+
+	case currCount >= 5 && currCount < 10:
+		p2 := Provider{
+			ip:   ip(r),
+			site: siteTwo,
+			key:  keyTwo,
+		}
+
+		p = p2
+
+		if country, err = p.GetAPICountry(client); err == nil {
+			return country, nil
+		}
+
+	case currCount >= 10 && currCount < 15:
+		p3 := Provider{
+			ip:   ip(r),
+			site: siteThree,
+		}
+
+		p = p3
+
+		if country, err = p.GetGeoCountry(); err == nil {
+			return country, nil
+		}
+
+	default:
+		p3 := Provider{
+			ip:   ip(r),
+			site: siteThree,
+		}
+
+		p = p3
+
+		if country, err = p.GetGeoCountry(); err == nil {
+			return country, nil
+		}
+
+	}
+
+	return "", err
+}
 
 func main() {
-	log.Print("Server Started")
+	// start := time.Now()
 
+	log.Print("Server started")
 	db, err := newGeoDB()
 	if err != nil {
 		fmt.Println("cant get db")
@@ -196,51 +231,54 @@ func main() {
 	defer db.Close()
 
 	client := newClient()
-	var s switcher
+	var p Providers
 
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
+	if _, err := os.Stat(filename); err != nil {
+		_, err := os.Create(filename)
+		if err != nil {
+			log.Println(err)
+		}
+	}
+
+	fileCount, err := readFromFile(filename)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	if fileCount >= 15 {
+		fileCount = 0
+	}
+
+	atomic.StoreInt64(&counter, fileCount)
+
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		s = siteOne
-		url, err := s.ParseURL(ip(r), siteOne, siteOneKey)
+		mu.Lock()
+		country, err := country(p, r, client, filename)
 		if err != nil {
 			w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
 		}
-
-		c, err := getAPICountry(client, url)
-		if err != nil {
-			w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
-		}
-		fmt.Println(c)
-
-		s = siteTwo
-		url2, err := s.ParseURL(ip(r), siteTwo, siteTwoKey)
-		if err != nil {
-			w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
-		}
-
-		c2, err := getAPICountry(client, url2)
-		if err != nil {
-			w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
-		}
-		fmt.Println(c2)
-
-		s = siteThree
-		c3, err := s.GetGeoCountry(db, ip(r))
-		if err != nil {
-			w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
-		}
-		fmt.Println(c3)
+		mu.Unlock()
+		fmt.Println(country)
 	})
+
+	go func() {
+		log.Print(http.ListenAndServe(":8080", nil))
+	}()
 
 	<-done
 	log.Print("Server Stopped")
 
 	_, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+
+	defer func() {
+		if err := writeToFile(filename); err != nil {
+			log.Println(err)
+		}
+		cancel()
+	}()
 
 	log.Print("Server Exited Properly")
-
-	http.ListenAndServe(":8080", nil)
 }
