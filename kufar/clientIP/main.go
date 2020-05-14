@@ -18,6 +18,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/go-redis/redis"
 	geo "github.com/oschwald/geoip2-golang"
 )
 
@@ -32,6 +33,7 @@ var (
 	counter int64
 	keyOne  string = os.Getenv("StackAaccessKey")
 	keyTwo  string = os.Getenv("APIAccessKey")
+	country string
 )
 
 type Provider interface {
@@ -52,12 +54,34 @@ type ProviderSwitcher struct {
 	count        uint32
 }
 
+type rediscache struct {
+	redis *redis.Client
+}
+
 type GeoProvider struct {
 	reader *geo.Reader
 }
 
 type Country struct {
 	Name string `json:"country_name"`
+}
+
+func newRedisCacheClient() (*rediscache, error) {
+	//
+	client := redis.NewClient(&redis.Options{
+		Addr:     "165.227.151.146:6379",
+		Password: os.Getenv("Password"),
+	})
+
+	_, err := client.Ping().Result()
+	if err != nil {
+		return nil, err
+	}
+	log.Println("redis connected")
+
+	return &rediscache{
+		redis: client,
+	}, nil
 }
 
 func NewIPStackAPIProvider(url string, accessKey string) *IPStackAPIProvider {
@@ -91,6 +115,14 @@ func NewProviderSwitcher(currentProvider int, providers ...Provider) (*ProviderS
 		ProviderList:         providers,
 		count:                0,
 	}, nil
+}
+
+func (r *rediscache) Get(ip net.IP) (string, error) {
+	return r.redis.Get(ip.String()).Result()
+}
+
+func (r *rediscache) Set(ip net.IP, country string) error {
+	return r.redis.Set(ip.String(), country, 5*time.Minute).Err()
 }
 
 func getClientIP(r *http.Request) net.IP {
@@ -177,7 +209,7 @@ func (p *ProviderSwitcher) writeToFile(file string) error {
 func (p *ProviderSwitcher) readFromFile(filename string) (uint32, error) {
 	bs, err := ioutil.ReadFile(filename)
 	if err != nil {
-		return 0, err
+		return 0, nil
 	}
 
 	count, err := strconv.Atoi(string(bs))
@@ -189,6 +221,11 @@ func (p *ProviderSwitcher) readFromFile(filename string) (uint32, error) {
 }
 
 func main() {
+	client, err := newRedisCacheClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
@@ -212,14 +249,20 @@ func main() {
 	providerSwitcher.count = count
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		country, err := providerSwitcher.Get(getClientIP(r))
+		cacheCountry, err := client.Get(getClientIP(r))
 		if err != nil {
-			w.Write([]byte(err.Error()))
-			return
+			country, err := providerSwitcher.Get(getClientIP(r))
+			if err != nil {
+				w.Write([]byte(err.Error()))
+				return
+			}
+			if err := client.Set(getClientIP(r), country); err != nil {
+				w.Write([]byte(err.Error()))
+				return
+			}
 		}
-		fmt.Printf("provider %d - %s\n", providerSwitcher.currentProviderIndex, country)
 
-		w.Write([]byte(country))
+		w.Write([]byte(cacheCountry))
 	})
 
 	srv := &http.Server{
