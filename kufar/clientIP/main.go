@@ -260,6 +260,7 @@ func main() {
 			w.Write([]byte(err.Error()))
 			return
 		}
+		fmt.Printf("Provider %d - %s\n", providerSwitcher.currentProviderIndex, country)
 		w.Write([]byte(country))
 	})
 
