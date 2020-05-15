@@ -52,6 +52,7 @@ type ProviderSwitcher struct {
 
 	ProviderList []Provider
 	count        uint32
+	rediscache
 }
 
 type rediscache struct {
@@ -66,11 +67,9 @@ type Country struct {
 	Name string `json:"country_name"`
 }
 
-func newRedisCacheClient() (*rediscache, error) {
-	//
+func NewRedisCacheClient() (*rediscache, error) {
 	client := redis.NewClient(&redis.Options{
-		Addr:     "165.227.151.146:6379",
-		Password: os.Getenv("Password"),
+		Addr: "127.0.0.1:6379",
 	})
 
 	_, err := client.Ping().Result()
@@ -106,6 +105,11 @@ func NewGeoProvider(fileName string) (*GeoProvider, error) {
 }
 
 func NewProviderSwitcher(currentProvider int, providers ...Provider) (*ProviderSwitcher, error) {
+	client, err := NewRedisCacheClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	if len(providers) == 0 {
 		return nil, errors.New("expected at least one provider")
 	}
@@ -114,14 +118,15 @@ func NewProviderSwitcher(currentProvider int, providers ...Provider) (*ProviderS
 		currentProviderIndex: 0,
 		ProviderList:         providers,
 		count:                0,
+		rediscache:           *client,
 	}, nil
 }
 
-func (r *rediscache) Get(ip net.IP) (string, error) {
+func (r *rediscache) GetCountry(ip net.IP) (string, error) {
 	return r.redis.Get(ip.String()).Result()
 }
 
-func (r *rediscache) Set(ip net.IP, country string) error {
+func (r *rediscache) SetCountry(ip net.IP, country string) error {
 	return r.redis.Set(ip.String(), country, 5*time.Minute).Err()
 }
 
@@ -134,7 +139,6 @@ func getClientIP(r *http.Request) net.IP {
 	if IPAddress == "" {
 		IPAddress += r.RemoteAddr
 	}
-
 	return net.ParseIP(IPAddress)
 }
 
@@ -161,7 +165,6 @@ func (i IPStackAPIProvider) GetCountry(ip net.IP) (string, error) {
 	if err := json.Unmarshal(bs, &c); err != nil {
 		return "", err
 	}
-
 	return c.Name, nil
 }
 
@@ -170,7 +173,6 @@ func (g GeoProvider) GetCountry(ip net.IP) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
 	return country.Country.Names["en"], nil
 }
 
@@ -196,7 +198,16 @@ func (p *ProviderSwitcher) Get(ip net.IP) (string, error) {
 	atomic.AddUint32(&count, 1)
 	atomic.StoreUint32(&p.count, count)
 
-	return provider.GetCountry(ip)
+	country, err := p.rediscache.GetCountry(ip)
+	if err != nil {
+		country, err := provider.GetCountry(ip)
+		if err != nil {
+			return "", nil
+		}
+		p.rediscache.SetCountry(ip, country)
+	}
+
+	return country, nil
 }
 
 func (p *ProviderSwitcher) writeToFile(file string) error {
@@ -221,11 +232,6 @@ func (p *ProviderSwitcher) readFromFile(filename string) (uint32, error) {
 }
 
 func main() {
-	client, err := newRedisCacheClient()
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
@@ -249,20 +255,12 @@ func main() {
 	providerSwitcher.count = count
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		cacheCountry, err := client.Get(getClientIP(r))
+		country, err := providerSwitcher.Get(getClientIP(r))
 		if err != nil {
-			country, err := providerSwitcher.Get(getClientIP(r))
-			if err != nil {
-				w.Write([]byte(err.Error()))
-				return
-			}
-			if err := client.Set(getClientIP(r), country); err != nil {
-				w.Write([]byte(err.Error()))
-				return
-			}
+			w.Write([]byte(err.Error()))
+			return
 		}
-
-		w.Write([]byte(cacheCountry))
+		w.Write([]byte(country))
 	})
 
 	srv := &http.Server{
