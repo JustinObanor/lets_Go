@@ -24,7 +24,6 @@ func main() {
 	fmt.Println(b.Buffered())
 	fmt.Println(b.Available())
 
-
 	if err := b.Flush(); err != nil {
 		log.Fatal("write fail ", err)
 	}

@@ -30,7 +30,6 @@ const (
 )
 
 var (
-	counter int64
 	keyOne  string = os.Getenv("StackAaccessKey")
 	keyTwo  string = os.Getenv("APIAccessKey")
 	country string
