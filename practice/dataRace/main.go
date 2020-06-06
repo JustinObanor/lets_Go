@@ -16,13 +16,17 @@ func main() {
 	for i := 0; i < gr; i++ {
 		go func() {
 			time.Sleep(time.Millisecond * 100)
+
 			counter++
+
 			wg.Done()
 		}()
 
 		go func() {
 			time.Sleep(time.Millisecond * 100)
+
 			counter--
+
 			wg.Done()
 		}()
 	}

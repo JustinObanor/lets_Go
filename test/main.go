@@ -9,22 +9,24 @@ import (
 func main() {
 	var counter int
 	var wg sync.WaitGroup
+	var mu sync.Mutex
 	const gr = 100
 
-	wg.Add(gr * 2)
+	wg.Add(gr)
 
 	for i := 0; i < gr; i++ {
 		go func() {
+			mu.Lock()
+
+			num := counter
 			time.Sleep(time.Millisecond * 100)
-			counter++
+			num++
+			counter = num
+
+			mu.Unlock()
 			wg.Done()
 		}()
 
-		go func() {
-			time.Sleep(time.Millisecond * 100)
-			counter--
-			wg.Done()
-		}()
 	}
 	wg.Wait()
 
