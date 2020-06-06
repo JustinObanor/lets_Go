@@ -9,9 +9,7 @@ import (
 	"sync"
 )
 
-var sites = []string{"https://google.com", "https://facebook.com", "https://stackoverflow.com", "https://golang.org", "https://amazon.com"}
-
-func checkAndSaveBody(url string, wg *sync.WaitGroup) (string, error) {
+func checkAndSaveBody(url string) (string, error) {
 	resp, err := http.Get(url)
 	if err != nil {
 		return "", fmt.Errorf("%s is down: %v", url, err)
@@ -34,22 +32,24 @@ func checkAndSaveBody(url string, wg *sync.WaitGroup) (string, error) {
 		}
 	}
 
-	wg.Done()
+	fmt.Printf("done with %s", url)
 	return "", err
 }
 
 func main() {
+	sites := []string{"https://ngoogle.com", "https://facebook.com", "https://stackoverflow.com"}
+
 	var wg sync.WaitGroup
 
-	wg.Add(len(sites))
-
 	for _, url := range sites {
+		wg.Add(1)
 		go func(s string) {
-			resp, err := checkAndSaveBody(s, &wg)
+			resp, err := checkAndSaveBody(s)
 			if err != nil {
 				fmt.Println(err)
 			}
 			fmt.Println(resp)
+			wg.Done()
 		}(url)
 	}
 
