@@ -14,59 +14,25 @@ import (
 	_ "github.com/lib/pq"
 )
 
-var (
-	host     = getenv("PSQL_HOST", "db_time")
-	port     = getenv("PSQL_PORT", "5432")
-	user     = getenv("PSQL_USER", "postgres")
-	password = getenv("PSQL_PWDcas", "postgres")
-	dbname   = getenv("PSQL_DB_NAME", "timelog")
-)
+var host = getenv("PSQL_HOST", "localhost")
+var port = getenv("PSQL_PORT", "5432")
+var user = getenv("PSQL_USER", "justin")
+var password = getenv("PSQL_PWDcas", "1999")
+var dbname = getenv("PSQL_DB_NAME", "timestamp")
 
-var url = "http://worldclockapi.com/api/json/utc/now"
+var wg sync.WaitGroup
+var db *sql.DB
+var w http.ResponseWriter
+var data DataLog
 
-//DataLog ...
-type DataLog struct {
-	ID   int    `json:"id"`
-	Time string `json:"currentDateTime"`
-}
-
-//Database ...
-type Database struct {
-	*sql.DB
-}
-
-type client struct {
-	*http.Client
-}
-
-func newDB() (*Database, error) {
+func init() {
+	var err error
 	psqlInfo := fmt.Sprintf(`host=%s port=%s user=%s
 	password=%s dbname=%s sslmode=disable`, host, port, user, password, dbname)
 
-	db, err := sql.Open("postgres", psqlInfo)
+	db, err = sql.Open("postgres", psqlInfo)
 	if err != nil {
-		return nil, err
-	}
-
-	if err = db.Ping(); err != nil {
-		return nil, err
-	}
-	log.Println("postgres connected")
-	return &Database{
-		db,
-	}, nil
-}
-
-//Close closes the conn
-func (db Database) Close() error {
-	return db.Close()
-}
-
-func newClient() *client {
-	return &client{
-		&http.Client{
-			Timeout: time.Second * 5,
-		},
+		panic(err)
 	}
 }
 
@@ -77,107 +43,143 @@ func getenv(key, fallback string) string {
 	return fallback
 }
 
-func timeLog(url string) ([]DataLog, error) {
-	client := newClient()
+type DataLog struct {
+	ID   int    `json:$id`
+	Time string `json:"currentDateTime"`
+}
 
-	res, err := client.Get(url)
+func getter(url string) []DataLog {
+	res, err := http.Get(url)
 	if err != nil {
-		return nil, err
+		log.Fatal(err)
 	}
-
 	defer res.Body.Close()
+
+	data = DataLog{}
 
 	b, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return nil, err
+		log.Fatal(err)
 	}
 
 	s := make([]DataLog, 0)
-	data := DataLog{}
 
 	err = json.Unmarshal(b, &data)
 	if err != nil {
-		return nil, err
+		log.Fatal(err)
 	}
-
 	s = append(s, data)
 
-	return s, nil
+	return s
+}
+
+func worker(url string, c chan DataLog, d chan bool) {
+	s := getter(url)
+
+	for _, v := range s {
+		c <- DataLog{v.ID, v.Time}
+	}
+
+	ticker := time.NewTicker(time.Second * 5)
+
+	for {
+		select {
+		case <-ticker.C:
+			s := getter(url)
+			for _, v := range s {
+				c <- DataLog{v.ID, v.Time}
+			}
+
+		case <-d:
+			fmt.Println("Worker finished work")
+			wg.Done()
+			return
+		}
+	}
+}
+
+func puller(c chan DataLog, d chan bool) {
+	insQuery := "INSERT INTO timetable (time) VALUES ($1)"
+	for {
+		select {
+		case v := <-c:
+			_, err := db.Exec(insQuery, v.Time)
+			if err != nil {
+				panic(err)
+			}
+		case <-d:
+			fmt.Println("Puller finished pulling")
+			wg.Done()
+			return
+		}
+	}
+}
+
+func recentTime(w http.ResponseWriter, _ *http.Request) {
+	selQuery := "select * from timetable order by id desc limit 1"
+	rows, err := db.Query(selQuery)
+	if err != nil {
+		panic(err)
+	}
+
+	defer rows.Close()
+
+	s := make([]DataLog, 0)
+	for rows.Next() {
+		err = rows.Scan(&data.ID, &data.Time)
+		if err != nil {
+			panic(err)
+		}
+		s = append(s, data)
+	}
+	if err = rows.Err(); err != nil {
+		panic(err)
+	}
+
+	for _, v := range s {
+		fmt.Fprintf(w, "Current Time : [ID : %d\t  Time : %v]\n", v.ID, v.Time)
+	}
+
+}
+
+func allTime(w http.ResponseWriter, _ *http.Request) {
+	selQuery := "SELECT * FROM timetable"
+	rows, err := db.Query(selQuery)
+	if err != nil {
+		panic(err)
+	}
+
+	defer rows.Close()
+
+	stamps := make([]DataLog, 0)
+	for rows.Next() {
+		err = rows.Scan(&data.ID, &data.Time)
+		if err != nil {
+			panic(err)
+		}
+		stamps = append(stamps, data)
+	}
+	if err = rows.Err(); err != nil {
+		panic(err)
+	}
+
+	for _, v := range stamps {
+		fmt.Fprintf(w, "Time %d : %v\n", v.ID, v.Time)
+	}
 }
 
 func main() {
+	url := "http://worldclockapi.com/api/json/utc/now"
+
 	c := make(chan DataLog)
-	var wg sync.WaitGroup
+	d := make(chan bool)
 
-	db, err := newDB()
-	if err != nil {
-		log.Println(err)
-	}
+	wg.Add(2)
+	go worker(url, c, d)
+	go puller(c, d)
 
-	go func() {
-		wg.Add(1)
-		for value := range c {
-			_, err := db.Exec("insert into datalog (time) values ($1)", value.Time)
-			if err != nil {
-				log.Println(err)
-			}
-		}
-	}()
-
-	ticker := time.NewTicker(time.Second)
-
-	for range ticker.C {
-		wg.Add(1)
-		d, err := timeLog(url)
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		go func() {
-			for _, value := range d {
-				c <- DataLog{value.ID, value.Time}
-			}
-		}()
-	}
-
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		rows, err := db.Query("select * from datalog order by id desc limit 1")
-		if err != nil {
-			log.Println(err)
-		}
-		defer rows.Close()
-
-		v := DataLog{}
-
-		if err := rows.Scan(&v.ID, &v.Time); err != nil {
-			log.Println(err)
-		}
-
-		fmt.Fprintf(w, "[ID:%d\tTime:%v]\n", v.ID, v.Time)
-	})
-
-	http.HandleFunc("/all", func(w http.ResponseWriter, r *http.Request) {
-		rows, err := db.Query("select * from datalog")
-		if err != nil {
-			log.Println(err)
-		}
-
-		defer rows.Close()
-
-		stamps := make([]DataLog, 0)
-		data := DataLog{}
-		for rows.Next() {
-			if err := rows.Scan(&data.ID, &data.Time); err != nil {
-				log.Println(err)
-			}
-			stamps = append(stamps, data)
-		}
-
-		for _, v := range stamps {
-			fmt.Fprintf(w, "[ID:%d\tTime:%v]\n", v.ID, v.Time)
-		}
-	})
-
+	http.HandleFunc("/", recentTime)
+	http.HandleFunc("/all", allTime)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 	wg.Wait()
 }
