@@ -23,6 +23,7 @@ func main() {
 	var pwg sync.WaitGroup
 	flag.Parse()
 
+	//spawning workers
 	cwg.Add(*con)
 	for i := 0; i <= *con; i++ {
 		go consumer(c, i, &cwg)
@@ -52,7 +53,7 @@ func main() {
 
 func consumer(c <-chan widget, con int, cwg *sync.WaitGroup) {
 	for elem := range c {
-		fmt.Printf("[%s  %v] consumer_%d\n", elem.label, elem.time.Format("15: 04: 05.0000"), con)
+		fmt.Printf("[%s  %v] consumer_%d\n", elem.label, elem.time.Format("15:04:05.00"), con)
 	}
 	cwg.Done()
 }
