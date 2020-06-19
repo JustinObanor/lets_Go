@@ -2,16 +2,23 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
+	"log"
+	"net/http"
+	"strings"
+
+	"github.com/PuerkitoBio/goquery"
 )
 
 func main() {
-	input, err := ioutil.ReadAll(os.Stdin)
+	resp, err := http.Get("https://www.bsuir.by/ru/rektorat/davydov-m-v")
 	if err != nil {
-		return
+		log.Println(err)
 	}
 
-	fmt.Println("Hello, World.")
-	fmt.Println(string(input))
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		log.Println(err)
+	}
+
+	fmt.Printf(strings.TrimSpace(doc.Find("a[href]").Text()))
 }
