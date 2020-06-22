@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 
@@ -45,14 +44,34 @@ func writeToFile(name string, data []byte) error {
 
 func getEmail(url string) error {
 	c := colly.NewCollector(
-		colly.AllowedDomains("www.bsuir.by", "www.bsuir.by/ru"),
+		colly.DisallowedDomains("www.facebook.com", "www.vk.com", "www.instagram.com", "www.twitter.com"),
 	)
 
 	c.OnHTML("a[href]", func(e *colly.HTMLElement) {
+		if e.Attr("class") == "Button_1qxkboh-o_O-primary_cv02ee-o_O-md_28awn8-o_O-primaryLink_109aggg" {
+			return
+		}
+
 		link := e.Attr("href")
 		link = strings.ToLower(link)
 
-		if strings.HasSuffix(link, "jpg") || strings.HasSuffix(link, "html") || strings.HasSuffix(link, "djvu") || strings.HasSuffix(link, "pps") || strings.HasSuffix(link, "pptx") || strings.Contains(link, "fotogalereya") || strings.Contains(link, "impuls") || strings.HasSuffix(link, "rar") || strings.HasSuffix(link, "doc") || strings.HasSuffix(link, "pdf") || strings.Contains(link, "phones") || strings.HasSuffix(link, "docx") || strings.HasSuffix(link, "zip") || strings.HasSuffix(link, "ppt") || strings.Contains(link, "news") {
+		if len(link) > 71 {
+			return
+		}
+
+		if strings.Index(link, "=signup") > -1 || strings.Index(link, "=login") > -1 ||
+			strings.HasSuffix(link, "jpg") || strings.Contains(link, "video") ||
+			strings.HasSuffix(link, "djvu") || strings.HasSuffix(link, "pps") ||
+			strings.HasSuffix(link, "pptx") || strings.Contains(link, "blog") ||
+			strings.Contains(link, "fotogalereya") || strings.Contains(link, "webinar") ||
+			strings.Contains(link, "moodle") || strings.Contains(link, "impuls") ||
+			strings.HasSuffix(link, "rar") || strings.HasSuffix(link, "doc") ||
+			strings.HasSuffix(link, "pdf") || strings.Contains(link, "phones") ||
+			strings.HasSuffix(link, "docx") || strings.HasSuffix(link, "zip") ||
+			strings.HasSuffix(link, "ppt") || strings.Contains(link, "news") ||
+			strings.Contains(link, "libeldoc") || strings.Contains(link, "doklady") ||
+			strings.Contains(link, "e-lib") || strings.Contains(link, "elearning") ||
+			strings.Contains(link, "elib") {
 			return
 		}
 
@@ -74,25 +93,38 @@ func getEmail(url string) error {
 			}
 		}
 
-		e.Request.Visit(link)
+		if strings.Contains(e.Request.AbsoluteURL(link), url) && !strings.HasPrefix(e.Request.AbsoluteURL(link), "mailto") {
+			c.Visit(e.Request.AbsoluteURL(link))
+		}
+
 	})
 
 	c.OnRequest(func(r *colly.Request) {
-		fmt.Println("visiting", r.URL.String())
+		if strings.Contains(r.URL.String(), url) && !strings.HasPrefix(r.URL.String(), "mailto") {
+			fmt.Println("visiting", r.URL.String())
+		}
 	})
 
-	if err := c.Visit(url); err != nil {
+	var b strings.Builder
+	b.WriteString("https://www.")
+	b.WriteString(url)
+	b.WriteString("/")
+
+	if err := c.Visit(b.String()); err != nil {
 		return err
 	}
+
+	b.Reset()
+
 	return nil
 }
 
 func main() {
-	url := "https://www.bsuir.by/"
+	url := ""
+	fmt.Print("Site to visit: ")
+	fmt.Scan(&url)
 
-	if err := os.Remove("emails.txt"); err != nil {
-		log.Println(err)
-	}
+	os.Remove("emails.txt")
 
 	getEmail(url)
 }
