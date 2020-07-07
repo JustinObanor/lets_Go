@@ -3,11 +3,17 @@ package main
 import "fmt"
 
 func main() {
-	sq := make([]int, 64)
-	s := 1
-	for i := 1; i < 64; i++{
-		sq[i] = s
-		s *= 2
+fmt.Println(reverse(123))
+}
+
+func reverse(x int) int {
+	var rev int
+
+	for x != 0 {
+		pop := x % 10
+		x /= 10
+
+		rev = rev * 10 + pop
 	}
-	fmt.Println(sq)
+	return rev
 }
