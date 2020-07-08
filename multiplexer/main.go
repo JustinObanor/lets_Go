@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -33,7 +32,6 @@ func NewClient(url string) *Client {
 func (c Client) GetContent() ([]byte, error) {
 	resp, err := c.client.Get(c.url)
 	if err != nil {
-		fmt.Println(err)
 		return nil, err
 	}
 	return ioutil.ReadAll(resp.Body)
