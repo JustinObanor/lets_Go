@@ -3,17 +3,17 @@ package main
 import "fmt"
 
 func main() {
-fmt.Println(reverse(123))
-}
+	s := []int{1, 2, 3, 4}
+	a := [...]int{1, 2, 3, 4}
 
-func reverse(x int) int {
-	var rev int
+	ss := s
+	aa := a
+	s[0] = 2
+	a[0] = 2
 
-	for x != 0 {
-		pop := x % 10
-		x /= 10
+	fmt.Println(ss[0])
+	fmt.Println(s[0])
+	fmt.Println(aa[0])
+	fmt.Println(a[0])
 
-		rev = rev * 10 + pop
-	}
-	return rev
 }
