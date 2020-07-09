@@ -3,17 +3,15 @@ package main
 import "fmt"
 
 func main() {
-	s := []int{1, 2, 3, 4}
-	a := [...]int{1, 2, 3, 4}
+	fmt.Println(moveZerous(123))
+}
 
-	ss := s
-	aa := a
-	s[0] = 2
-	a[0] = 2
+func moveZerous(nums int) int {
+	var rev int
 
-	fmt.Println(ss[0])
-	fmt.Println(s[0])
-	fmt.Println(aa[0])
-	fmt.Println(a[0])
-
+	for nums != 0 {
+		rev = rev * 10 + nums % 10
+		nums /= 10
+	}
+	return rev
 }
