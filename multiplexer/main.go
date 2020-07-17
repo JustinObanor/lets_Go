@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -18,8 +19,33 @@ type URLs struct {
 	List []string `json:"list"`
 }
 
-func getContent(client *http.Client, url string) ([]byte, error) {
-	resp, err := client.Get(url)
+//Client is a http clieng
+type Client struct {
+	client *http.Client
+}
+
+//Response is the response sent to the client
+type Response struct {
+	index   int
+	content []byte
+}
+
+//Job is a single url with its index
+type Job struct {
+	index int
+	site  string
+}
+
+func newClient() *Client {
+	return &Client{
+		client: &http.Client{
+			Timeout: time.Second,
+		},
+	}
+}
+
+func (c Client) getContent(url string) ([]byte, error) {
+	resp, err := c.client.Get(url)
 	if err != nil {
 		return nil, err
 	}
@@ -35,14 +61,16 @@ func getContent(client *http.Client, url string) ([]byte, error) {
 
 func main() {
 	var urls URLs
-	var wg sync.WaitGroup
-	var mu sync.RWMutex
+	var jwg sync.WaitGroup
+	var rwg sync.WaitGroup
+	jobs := make(chan Job)
+	result := make(chan Response)
+	workers := 5
+
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
-	client := http.Client{
-		Timeout: time.Second,
-	}
+	client := newClient()
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if err := json.NewDecoder(r.Body).Decode(&urls); err != nil {
@@ -50,29 +78,54 @@ func main() {
 		}
 
 		if len(urls.List) > 20 {
+			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("amount of url's exceeded limit"))
 			return
 		}
 
-		for _, url := range urls.List {
-			wg.Add(1)
-			go func(u string) {
-				mu.RLock()
-				content, err := getContent(&client, u)
-				mu.RUnlock()
-				
-				if err != nil {
-					w.Write([]byte(err.Error()))
+		//reciving result, sorting, and then sending to client
+		rwg.Add(1)
+		go func() {
+			responses := make([]string, len(urls.List))
+			for r := range result {
+				responses[r.index] = string(r.content)
+			}
+
+			for i, content := range responses {
+				w.Write([]byte(content))
+				fmt.Printf("wrote content of %s\n", urls.List[i])
+			}
+			rwg.Done()
+		}()
+
+		//pulling from channel and working, and then sending to be sorted
+		jwg.Add(workers)
+		for i := 0; i < workers; i++ {
+			go func() {
+				for url := range jobs {
+					content, err := client.getContent(url.site)
+					if err != nil {
+						w.WriteHeader(http.StatusInternalServerError)
+						w.Write([]byte(err.Error()))
+						return
+					}
+					result <- Response{index: url.index, content: content}
 				}
-
-				mu.Lock()
-				w.Write(content)
-				mu.Unlock()
-
-				wg.Done()
-			}(url)
+				jwg.Done()
+			}()
 		}
-		wg.Wait()
+
+		//sending the url's to the channel to start aggregating
+		go func() {
+			for i, url := range urls.List {
+				jobs <- Job{index: i, site: url}
+			}
+			close(jobs)
+		}()
+
+		jwg.Wait()
+		close(result)
+		rwg.Wait()
 	})
 
 	srv := &http.Server{
@@ -81,7 +134,7 @@ func main() {
 	}
 
 	go func() {
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := srv.ListenAndServe(); err != nil {
 			log.Fatalf("listen:%+s\n", err)
 		}
 	}()
@@ -92,13 +145,9 @@ func main() {
 
 	log.Printf("server stopped")
 
-	ctxShutDown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := srv.Shutdown(ctxShutDown); err != nil {
+	if err := srv.Shutdown(context.Background()); err != nil {
 		log.Fatalf("server Shutdown Failed:%+s", err)
 	}
 
 	log.Printf("server exited properly")
-
 }
