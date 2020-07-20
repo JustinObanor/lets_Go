@@ -9,10 +9,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sort"
 	"sync"
 	"syscall"
 	"time"
 )
+
+const workers = 5
 
 //URLs stores the list of sites
 type URLs struct {
@@ -60,25 +63,24 @@ func (c Client) getContent(url string) ([]byte, error) {
 }
 
 func main() {
-	var urls URLs
-	var jwg sync.WaitGroup
-	var rwg sync.WaitGroup
-	jobs := make(chan Job)
-	result := make(chan Response)
-	workers := 5
-
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	client := newClient()
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		var urls URLs
+		var jwg sync.WaitGroup
+		var rwg sync.WaitGroup
+		jobs := make(chan Job, 20)
+		result := make(chan Response, 20)
+
 		if err := json.NewDecoder(r.Body).Decode(&urls); err != nil {
 			return
 		}
 
 		if len(urls.List) > 20 {
-			w.WriteHeader(http.StatusInternalServerError)
+			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte("amount of url's exceeded limit"))
 			return
 		}
@@ -86,10 +88,12 @@ func main() {
 		//reciving result, sorting, and then sending to client
 		rwg.Add(1)
 		go func() {
-			responses := make([]string, len(urls.List))
+			responses := make([]string,0, len(urls.List))
 			for r := range result {
-				responses[r.index] = string(r.content)
+				responses = append(responses, string(r.content))
 			}
+
+			sort.Sort(sort.StringSlice(responses))
 
 			for i, content := range responses {
 				w.Write([]byte(content))

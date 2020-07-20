@@ -1,17 +1,12 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"sort"
+)
 
 func main() {
-	fmt.Println(moveZerous(123))
-}
-
-func moveZerous(nums int) int {
-	var rev int
-
-	for nums != 0 {
-		rev = rev * 10 + nums % 10
-		nums /= 10
-	}
-	return rev
+	s := []string{"f", "d", "b", "a", "b"}
+	sort.Sort(sort.StringSlice(s))
+	fmt.Println(s)
 }
