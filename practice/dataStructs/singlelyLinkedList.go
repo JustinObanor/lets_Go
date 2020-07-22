@@ -113,6 +113,21 @@ func (l *LinkedList) lookup(item int) bool {
 	return false
 }
 
+func (l *LinkedList) reverse() {
+	first := l.head
+	l.tail = l.head
+	second := first.next
+
+	for second != nil {
+		temp := second.next
+		second.next = first
+		first = second
+		second = temp
+	}
+	l.head.next = nil
+	l.head = first
+}
+
 func (l *LinkedList) getList() []int {
 	values := make([]int, 0, l.length)
 	currentNode := l.head

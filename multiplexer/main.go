@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,9 +14,12 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"golang.org/x/net/netutil"
 )
 
 const workers = 5
+const connectionLimit = 100
 
 //URLs stores the list of sites
 type URLs struct {
@@ -47,7 +51,7 @@ func newClient() *Client {
 	}
 }
 
-func (c Client) getContent(url string) ([]byte, error) {
+func (c Client) getContent(_ context.Context, url string) ([]byte, error) {
 	resp, err := c.client.Get(url)
 	if err != nil {
 		return nil, err
@@ -72,6 +76,8 @@ func main() {
 		var urls URLs
 		var jwg sync.WaitGroup
 		var rwg sync.WaitGroup
+		//Limitation#5
+		// var ctxReq = r.Context
 		jobs := make(chan Job, 20)
 		result := make(chan Response, 20)
 
@@ -88,7 +94,7 @@ func main() {
 		//reciving result, sorting, and then sending to client
 		rwg.Add(1)
 		go func() {
-			responses := make([]string,0, len(urls.List))
+			responses := make([]string, 0, len(urls.List))
 			for r := range result {
 				responses = append(responses, string(r.content))
 			}
@@ -105,12 +111,16 @@ func main() {
 		//pulling from channel and working, and then sending to be sorted
 		jwg.Add(workers)
 		for i := 0; i < workers; i++ {
+			ctx, cancel := context.WithCancel(context.Background())
+
 			go func() {
 				for url := range jobs {
-					content, err := client.getContent(url.site)
+					content, err := client.getContent(ctx, url.site)
 					if err != nil {
 						w.WriteHeader(http.StatusInternalServerError)
 						w.Write([]byte(err.Error()))
+						cancel()
+
 						return
 					}
 					result <- Response{index: url.index, content: content}
@@ -132,13 +142,21 @@ func main() {
 		rwg.Wait()
 	})
 
+	l, err := net.Listen("tcp", ":8080")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer l.Close()
+
+	l = netutil.LimitListener(l, connectionLimit)
+
 	srv := &http.Server{
 		Addr:    ":8080",
 		Handler: nil,
 	}
 
 	go func() {
-		if err := srv.ListenAndServe(); err != nil {
+		if err := srv.Serve(l); err != nil {
 			log.Fatalf("listen:%+s\n", err)
 		}
 	}()
