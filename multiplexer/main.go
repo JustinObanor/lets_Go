@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sort"
 	"sync"
 	"syscall"
 	"time"
@@ -52,6 +53,8 @@ func newWorker() *Worker {
 				Timeout: time.Second,
 			},
 		},
+		errChan: make(chan error, 20),
+		resChan: make(chan Response, 20),
 	}
 }
 
@@ -112,12 +115,10 @@ func main() {
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
-	work := newWorker()
-
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		work := newWorker()
+
 		jobs := make(chan Job, 20)
-		work.errChan = make(chan error, 20)
-		work.resChan = make(chan Response, 20)
 
 		var jwg sync.WaitGroup
 		var swg sync.WaitGroup
@@ -129,13 +130,13 @@ func main() {
 			return
 		}
 
+		responses := make([]Response,0, len(urls))
+
 		ctx, cancel := context.WithCancel(r.Context())
 		var counter int
 
 		swg.Add(1)
 		go func() {
-			responses := make([]string, len(urls))
-
 			defer swg.Done()
 			for {
 				if counter >= len(urls) {
@@ -150,14 +151,9 @@ func main() {
 					if !ok {
 						return
 					}
-					responses[res.index] = string(res.content)
+					responses = append(responses, res)
 				}
 				counter++
-			}
-
-			for i, content := range responses {
-				fmt.Printf("writing content of %s\n", urls[i])
-				w.Write([]byte(content))
 			}
 		}()
 
@@ -177,6 +173,15 @@ func main() {
 		close(work.resChan)
 		close(work.errChan)
 		swg.Wait()
+
+		sort.Slice(responses, func(i,j int) bool{
+			return responses[i].index < responses[j].index
+		})
+
+		for i, cont := range responses {
+			fmt.Printf("writing content of %s\n", urls[i])
+			w.Write([]byte(cont.content))
+		}
 	})
 
 	l, err := net.Listen("tcp", ":8080")
