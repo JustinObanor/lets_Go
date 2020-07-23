@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -10,7 +11,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"sort"
 	"sync"
 	"syscall"
 	"time"
@@ -21,38 +21,59 @@ import (
 const workers = 5
 const connectionLimit = 100
 
-//URLs stores the list of sites
-type URLs struct {
+type URL struct {
 	List []string `json:"list"`
 }
 
-//Client is a http clieng
-type Client struct {
-	client *http.Client
-}
-
-//Response is the response sent to the client
-type Response struct {
-	index   int
-	content []byte
-}
-
-//Job is a single url with its index
 type Job struct {
 	index int
 	site  string
 }
 
-func newClient() *Client {
-	return &Client{
-		client: &http.Client{
-			Timeout: time.Second,
+type Response struct {
+	index   int
+	content []byte
+}
+
+type Client struct {
+	client *http.Client
+}
+
+type Worker struct {
+	client  Client
+	errChan chan error
+	resChan chan Response
+}
+
+func newWorker() *Worker {
+	return &Worker{
+		client: Client{
+			client: &http.Client{
+				Timeout: time.Second,
+			},
 		},
 	}
 }
 
-func (c Client) getContent(_ context.Context, url string) ([]byte, error) {
-	resp, err := c.client.Get(url)
+func decodeRequest(r *http.Request) ([]string, error) {
+	var url URL
+	if err := json.NewDecoder(r.Body).Decode(&url); err != nil {
+		return nil, err
+	}
+
+	if len(url.List) > 20 {
+		return nil, errors.New("amount of url's exceeded limit")
+	}
+	return url.List, nil
+}
+
+func (c Client) getContent(ctx context.Context, url string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -66,80 +87,96 @@ func (c Client) getContent(_ context.Context, url string) ([]byte, error) {
 	return b, nil
 }
 
+func (w Worker) worker(ctx context.Context, wg *sync.WaitGroup, jobs chan Job) {
+	defer wg.Done()
+	for {
+		select {
+		case <-ctx.Done():
+			fmt.Println("request cancelled")
+			return
+		case url, ok := <-jobs:
+			if !ok {
+				return
+			}
+			content, err := w.client.getContent(ctx, url.site)
+			if err != nil {
+				w.errChan <- err
+				return
+			}
+			w.resChan <- Response{index: url.index, content: content}
+		}
+	}
+}
+
 func main() {
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
-	client := newClient()
+	work := newWorker()
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		var urls URLs
-		var jwg sync.WaitGroup
-		var rwg sync.WaitGroup
-		//Limitation#5
-		// var ctxReq = r.Context
 		jobs := make(chan Job, 20)
-		result := make(chan Response, 20)
+		work.errChan = make(chan error, 20)
+		work.resChan = make(chan Response, 20)
 
-		if err := json.NewDecoder(r.Body).Decode(&urls); err != nil {
-			return
-		}
+		var jwg sync.WaitGroup
+		var swg sync.WaitGroup
 
-		if len(urls.List) > 20 {
+		urls, err := decodeRequest(r)
+		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("amount of url's exceeded limit"))
+			w.Write([]byte(err.Error()))
 			return
 		}
 
-		//reciving result, sorting, and then sending to client
-		rwg.Add(1)
+		ctx, cancel := context.WithCancel(r.Context())
+		var counter int
+
+		swg.Add(1)
 		go func() {
-			responses := make([]string, 0, len(urls.List))
-			for r := range result {
-				responses = append(responses, string(r.content))
-			}
+			responses := make([]string, len(urls))
 
-			sort.Sort(sort.StringSlice(responses))
-
-			for i, content := range responses {
-				w.Write([]byte(content))
-				fmt.Printf("wrote content of %s\n", urls.List[i])
-			}
-			rwg.Done()
-		}()
-
-		//pulling from channel and working, and then sending to be sorted
-		jwg.Add(workers)
-		for i := 0; i < workers; i++ {
-			ctx, cancel := context.WithCancel(context.Background())
-
-			go func() {
-				for url := range jobs {
-					content, err := client.getContent(ctx, url.site)
-					if err != nil {
-						w.WriteHeader(http.StatusInternalServerError)
-						w.Write([]byte(err.Error()))
-						cancel()
-
+			defer swg.Done()
+			for {
+				if counter >= len(urls) {
+					break
+				}
+				select {
+				case err := <-work.errChan:
+					w.Write([]byte(err.Error()))
+					cancel()
+					return
+				case res, ok := <-work.resChan:
+					if !ok {
 						return
 					}
-					result <- Response{index: url.index, content: content}
+					responses[res.index] = string(res.content)
 				}
-				jwg.Done()
-			}()
+				counter++
+			}
+
+			for i, content := range responses {
+				fmt.Printf("writing content of %s\n", urls[i])
+				w.Write([]byte(content))
+			}
+		}()
+
+		jwg.Add(workers)
+		for i := 0; i < workers; i++ {
+			go work.worker(ctx, &jwg, jobs)
 		}
 
-		//sending the url's to the channel to start aggregating
 		go func() {
-			for i, url := range urls.List {
+			for i, url := range urls {
 				jobs <- Job{index: i, site: url}
 			}
 			close(jobs)
 		}()
 
 		jwg.Wait()
-		close(result)
-		rwg.Wait()
+		close(work.resChan)
+		close(work.errChan)
+		swg.Wait()
 	})
 
 	l, err := net.Listen("tcp", ":8080")
