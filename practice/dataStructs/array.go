@@ -1,22 +1,8 @@
 package main
 
-import "fmt"
-
 type myArray []string
 
-func main() {
-	newArray := myArray{}
-	newArray = newArray.push("a", "b", "c")
-	newArray = newArray.pop()
-	newArray = newArray.push("d", "e")
-	newArray = newArray.delete(1)
-	fmt.Println(newArray.lookup(0))
-	newArray = newArray.unshift("x", "y", "z")
-	newArray = newArray.splice(1, "F", "G")
-	fmt.Println(newArray)
-}
-
-//0(n)
+//0(1)
 func (a myArray) push(data ...string) myArray {
 	return append(a, data...)
 }
