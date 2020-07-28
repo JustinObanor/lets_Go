@@ -77,7 +77,5 @@ func main() {
 	fmt.Println(q.dequeue())
 	fmt.Println(q.dequeue())
 	fmt.Println(q.dequeue())
-	fmt.Println(q.dequeue())
-	fmt.Println(q)
 	fmt.Println(q.getItems())
 }
