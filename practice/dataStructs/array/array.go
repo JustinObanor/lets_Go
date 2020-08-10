@@ -3,8 +3,8 @@ package main
 type myArray []string
 
 //0(1)
-func (a myArray) push(data ...string) myArray {
-	return append(a, data...)
+func (a myArray) push(data string) myArray {
+	return append(a, data)
 }
 
 //0(1)
