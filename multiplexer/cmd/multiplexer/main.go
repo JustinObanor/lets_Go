@@ -20,7 +20,7 @@ import (
 
 const (
 	connectionLimit = 100
-	port            = 8080
+	port            = 8080 
 )
 
 func main() {
@@ -32,7 +32,7 @@ func main() {
 		log.Error().Err(err).Send()
 		os.Exit(1)
 	}
-	defer func() { _ = l.Close() }()
+	defer l.Close() 
 
 	l = netutil.LimitListener(l, connectionLimit)
 
@@ -60,7 +60,9 @@ func main() {
 		close(idleConnsClosed)
 	}()
 
-	go func() { _ = s.Serve(l) }()
+	go func() { 
+		s.Serve(l) 
+		}()
 
 	log.Info().Str("HTTP server is started", s.Addr).Send()
 
