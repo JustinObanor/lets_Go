@@ -1,7 +1,15 @@
 package main
 
+import "fmt"
+
 type hashTable struct {
 	data map[(interface{})][]interface{}
+}
+
+func New() hashTable {
+	return hashTable{
+		data: make(map[interface{}][]interface{}),
+	}
 }
 
 func (h *hashTable) get(key interface{}) interface{} {
@@ -9,12 +17,9 @@ func (h *hashTable) get(key interface{}) interface{} {
 }
 
 func (h *hashTable) set(key, value interface{}) {
-	v, ok := h.data[key]
+	v := h.data[key]
 
-	if !ok {
-		v = make([]interface{}, 0)
-		v = append(v, value)
-	}
+	v = append(v, value)
 
 	h.data[key] = v
 }
@@ -33,4 +38,11 @@ func (h *hashTable) values() []interface{} {
 		res = append(res, value)
 	}
 	return res
+}
+
+func main() {
+	h := New()
+	h.set("a", 1)
+	h.set("a", 2)
+	fmt.Println(h.get("a"))
 }

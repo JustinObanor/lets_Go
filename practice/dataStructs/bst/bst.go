@@ -134,6 +134,57 @@ func (b *BinarySearchTree) remove(value int) {
 	}
 }
 
+func (bst *BinarySearchTree) preOderTraversal(currNode *Node) {
+	if currNode == nil {
+		return
+	}
+
+	fmt.Println(currNode.value)
+
+	bst.preOderTraversal(currNode.left)
+
+	bst.preOderTraversal(currNode.right)
+}
+
+func (bst *BinarySearchTree) inOderTraversal(currNode *Node) {
+	if currNode == nil {
+		return
+	}
+
+	bst.inOderTraversal(currNode.left)
+
+	fmt.Println(currNode.value)
+
+	bst.inOderTraversal(currNode.right)
+}
+
+func (bst *BinarySearchTree) postOderTraversal(currNode *Node) {
+	if currNode == nil {
+		return
+	}
+
+	bst.postOderTraversal(currNode.left)
+
+	bst.postOderTraversal(currNode.right)
+
+	fmt.Println(currNode.value)
+}
+
+/*
+								  41
+
+								  
+							 
+			  20				     	  			           65
+
+			 
+	   11		 	    29		     				  50 			 	 	91	
+
+
+
+7			 15	 25	        	32				 48	  		  55 		72 		 	  99
+*/
+
 func main() {
 	var bst BinarySearchTree
 	bst.insert(41)
@@ -146,6 +197,11 @@ func main() {
 	bst.insert(11)
 	bst.insert(29)
 	bst.insert(32)
-	bst.remove(29)
-	fmt.Println(bst.lookup(11))
+	bst.insert(7)
+	bst.insert(25)
+	bst.insert(55)
+	bst.insert(48)
+	bst.insert(15)
+	// bst.remove(29)
+	bst.preOderTraversal(bst.root)
 }
