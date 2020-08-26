@@ -140,38 +140,39 @@ func (b *BinarySearchTree) remove(value int) {
 	 2    9     17	  25
 */
 
-func (bst *BinarySearchTree) preOderTraversal(currNode *Node) {
+func (b *BinarySearchTree) preOderTraversal(currNode *Node) {
+
 	if currNode == nil {
 		return
 	}
 
 	fmt.Println(currNode.value)
 
-		bst.preOderTraversal(currNode.left)
+	b.preOderTraversal(currNode.left)
 
-		bst.preOderTraversal(currNode.right)
+	b.preOderTraversal(currNode.right)
 }
 
-func (bst *BinarySearchTree) inOderTraversal(currNode *Node) {
+func (b *BinarySearchTree) inOderTraversal(currNode *Node) {
 	if currNode == nil {
 		return
 	}
 
-	bst.inOderTraversal(currNode.left)
+	b.inOderTraversal(currNode.left)
 
 	fmt.Println(currNode.value)
 
-	bst.inOderTraversal(currNode.right)
+	b.inOderTraversal(currNode.right)
 }
 
-func (bst *BinarySearchTree) postOderTraversal(currNode *Node) {
+func (b *BinarySearchTree) postOderTraversal(currNode *Node) {
 	if currNode == nil {
 		return
 	}
 
-	bst.postOderTraversal(currNode.left)
+	b.postOderTraversal(currNode.left)
 
-	bst.postOderTraversal(currNode.right)
+	b.postOderTraversal(currNode.right)
 
 	fmt.Println(currNode.value)
 }
@@ -180,8 +181,8 @@ func (bst *BinarySearchTree) postOderTraversal(currNode *Node) {
 					10
 
 		7						18
-		
-2				9		17				25		
+
+2				9		17				25
 */
 
 func main() {
