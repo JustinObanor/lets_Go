@@ -1,0 +1,12 @@
+version: '3'
+
+services:
+  database:
+    build: 
+      context: .
+    container_name: dbTest
+  
+    environment:
+      POSTGRES_PASSWORD: qwerty
+      POSTGRES_USERNAME: qwerty
+
