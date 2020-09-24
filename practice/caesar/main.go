@@ -18,15 +18,15 @@ func caesar(r rune, shift int) rune {
 }
 
 func main() {
-	value := "test"
+	value := "TEST"
 	fmt.Println(value)
 
 	value2 := strings.Map(func(r rune) rune {
-		return caesar(r, 18)
+		return caesar(r, 5)
 	}, value)
 
 	value3 := strings.Map(func(r rune) rune {
-		return caesar(r, -18)
+		return caesar(r, -5)
 	}, value2)
 	fmt.Println(value2, value3)
 

@@ -1,13 +1,17 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+)
 
+//Node ...
 type Node struct {
 	value int
 	left  *Node
 	right *Node
 }
 
+//BinarySearchTree ...
 type BinarySearchTree struct {
 	root *Node
 }
@@ -18,12 +22,12 @@ func newNode(value int) *Node {
 	}
 }
 
-func (b *BinarySearchTree) insert(value int) {
+func (bst *BinarySearchTree) insert(value int) {
 	node := newNode(value)
-	if b.root == nil {
-		b.root = node
+	if bst.root == nil {
+		bst.root = node
 	} else {
-		currNode := b.root
+		currNode := bst.root
 		for {
 			if value > currNode.value {
 				if currNode.right == nil {
@@ -42,12 +46,13 @@ func (b *BinarySearchTree) insert(value int) {
 	}
 }
 
-func (b *BinarySearchTree) lookup(value int) bool {
-	if b.root == nil {
+//binary search(Olog(n))
+func (bst *BinarySearchTree) lookup(value int) bool {
+	if bst.root == nil {
 		return false
 	}
 
-	currNode := b.root
+	currNode := bst.root
 
 	for currNode != nil {
 		if value < currNode.value {
@@ -61,12 +66,12 @@ func (b *BinarySearchTree) lookup(value int) bool {
 	return false
 }
 
-func (b *BinarySearchTree) remove(value int) {
-	if b.root == nil {
+func (bst *BinarySearchTree) remove(value int) {
+	if bst.root == nil {
 		return
 	}
 
-	currNode := b.root
+	currNode := bst.root
 
 	parentNode := currNode
 	for currNode != nil {
@@ -81,7 +86,7 @@ func (b *BinarySearchTree) remove(value int) {
 			//no right child
 			if currNode.right == nil {
 				if parentNode == nil {
-					b.root = currNode.left
+					bst.root = currNode.left
 				} else {
 					if currNode.value > parentNode.value {
 						parentNode.right = currNode.left
@@ -94,7 +99,7 @@ func (b *BinarySearchTree) remove(value int) {
 			} else if currNode.right.left == nil {
 				currNode.right.left = currNode.left
 				if parentNode == nil {
-					b.root = currNode.right
+					bst.root = currNode.right
 				} else {
 					if currNode.value < parentNode.value {
 						parentNode.left = currNode.right
@@ -121,7 +126,7 @@ func (b *BinarySearchTree) remove(value int) {
 				leftMost.right = currNode.right
 
 				if parentNode == nil {
-					b.root = leftMost
+					bst.root = leftMost
 				} else {
 					if currNode.value < parentNode.value {
 						parentNode.left = leftMost
@@ -170,38 +175,75 @@ func (bst *BinarySearchTree) postOderTraversal(currNode *Node) {
 	fmt.Println(currNode.value)
 }
 
+func (bst *BinarySearchTree) breadthFirstSearch() (list []int) {
+	queue := []*Node{}
+
+	currNode := bst.root
+	queue = append(queue, currNode)
+	for len(queue) > 0 {
+		currNode, queue = queue[0], queue[1:]
+		list = append(list, currNode.value)
+
+		if currNode.left != nil {
+			queue = append(queue, currNode.left)
+		}
+
+		if currNode.right != nil {
+			queue = append(queue, currNode.right)
+		}
+	}
+
+	return list
+}
+
+func (bst *BinarySearchTree) breadthFirstSearchRecursive(queue []*Node, list []int) []int {
+	if len(queue) == 0 {
+		return list
+	}
+
+	currNode, queue := queue[0], queue[1:]
+	list = append(list, currNode.value)
+
+	if currNode.left != nil {
+		queue = append(queue, currNode.left)
+	}
+
+	if currNode.right != nil {
+		queue = append(queue, currNode.right)
+	}
+
+	return bst.breadthFirstSearchRecursive(queue, list)
+}
+
 /*
-								  41
-
-								  
-							 
-			  20				     	  			           65
-
-			 
-	   11		 	    29		     				  50 			 	 	91	
-
-
-
-7			 15	 25	        	32				 48	  		  55 		72 		 	  99
+				9
+		4				20
+	1		6		15		170
+bfs = 9 4 20 1 6 15 170 (more memory required)
+dfs = 9 4 1 6 20 15 170 (lower memory required)
 */
 
 func main() {
 	var bst BinarySearchTree
-	bst.insert(41)
+	bst.insert(9)
+	bst.insert(4)
+	bst.insert(6)
 	bst.insert(20)
-	bst.insert(65)
-	bst.insert(91)
-	bst.insert(50)
-	bst.insert(99)
-	bst.insert(72)
-	bst.insert(11)
-	bst.insert(29)
-	bst.insert(32)
-	bst.insert(7)
-	bst.insert(25)
-	bst.insert(55)
-	bst.insert(48)
+	bst.insert(170)
 	bst.insert(15)
-	// bst.remove(29)
-	bst.preOderTraversal(bst.root)
+	bst.insert(1)
+	fmt.Println(bst.breadthFirstSearch())
+	fmt.Println(bst.breadthFirstSearchRecursive([]*Node{bst.root}, []int{}))
 }
+
+//If you know a solution is not far from the root of the tree:BFS
+
+//If the tree is very deep and solutions are rare: BFS (dfs too slow(recursive functions))
+
+//If the tree is very wide:DFS(BFS will take too much memory)
+
+//If solutions are frequent but located deep in the tree:DFS
+
+//Determining whether a path exists between two nodes:DFS
+
+//Finding the shortest path:BFS

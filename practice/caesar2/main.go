@@ -1,5 +1,7 @@
 package main
 
+import "fmt"
+
 // Caesar Cipher
 // (description more or less taken from Wikipedia)
 //
@@ -14,10 +16,10 @@ package main
 
 // cipher takes in the text to be ciphered along with the direction that
 // is being taken; -1 means encoding, +1 means decoding.
-func cipher(text string, direction int) string {
+func cipher(shift rune, text string, direction int) string {
 	// shift -> number of letters to move to right or left
 	// offset -> size of the alphabet, in this case the plain ASCII
-	shift, offset := rune(1), rune(26)
+	offset := rune(26)
 
 	// string->rune conversion
 	runes := []rune(text)
@@ -53,15 +55,35 @@ func cipher(text string, direction int) string {
 
 // encode and decode provide the API for encoding and decoding text using
 // the Caesar Cipher algorithm.
-func encode(text string) string { return cipher(text, -1) }
+func encode(shift rune, text string) string { return cipher(shift, text, -1) }
 
-func decode(text string) string { return cipher(text, +1) }
+func decode(shift rune, text string) string { return cipher(shift, text, +1) }
 
 // A simple test
 func main() {
-	println("the text is `abc`")
-	encoded := encode("abc")
-	println("  encoded: " + encoded)
-	decoded := decode(encoded)
-	println("  decoded: " + decoded)
+	print("Input first name: ")
+	var fName string
+	fmt.Scan(&fName)
+
+	print("Input last name: ")
+	var lName string
+	fmt.Scan(&lName)
+
+	fmt.Print("Input key: ")
+	var key rune
+
+	text := fName + " " + lName
+
+	fmt.Scan(&key)
+	encoded := encode(key, text)
+	println("Encoded: " + encoded)
+	decoded := decode(key, encoded)
+	println("Decoded: " + decoded)
 }
+
+//title list
+//language
+//platform
+//program code
+//how code works(where we put data and how we receive info)
+//encode and decode
