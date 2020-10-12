@@ -1,8 +1,6 @@
 package main
 
-import (
-	"fmt"
-)
+import "fmt"
 
 //Node ...
 type Node struct {
@@ -139,18 +137,22 @@ func (bst *BinarySearchTree) remove(value int) {
 	}
 }
 
+//memory O(h), where h = height of tree
+
+//DFS (shows exaxtly how the tree is)
 func (bst *BinarySearchTree) preOderTraversal(currNode *Node) {
 	if currNode == nil {
 		return
 	}
 
 	fmt.Println(currNode.value)
-
 	bst.preOderTraversal(currNode.left)
-
 	bst.preOderTraversal(currNode.right)
 }
 
+var inOrderList []int
+
+//DFS (gives everything in order)
 func (bst *BinarySearchTree) inOderTraversal(currNode *Node) {
 	if currNode == nil {
 		return
@@ -158,28 +160,34 @@ func (bst *BinarySearchTree) inOderTraversal(currNode *Node) {
 
 	bst.inOderTraversal(currNode.left)
 
-	fmt.Println(currNode.value)
+	inOrderList = append(inOrderList, currNode.value)
 
 	bst.inOderTraversal(currNode.right)
 }
 
+//DFS (goes from bottom to top)
 func (bst *BinarySearchTree) postOderTraversal(currNode *Node) {
 	if currNode == nil {
 		return
 	}
 
 	bst.postOderTraversal(currNode.left)
-
 	bst.postOderTraversal(currNode.right)
-
 	fmt.Println(currNode.value)
 }
 
+/*
+			/	9
+		4				20
+	1		6		15		170
+*/
+
 func (bst *BinarySearchTree) breadthFirstSearch() (list []int) {
 	queue := []*Node{}
-
 	currNode := bst.root
+
 	queue = append(queue, currNode)
+
 	for len(queue) > 0 {
 		currNode, queue = queue[0], queue[1:]
 		list = append(list, currNode.value)
@@ -193,7 +201,7 @@ func (bst *BinarySearchTree) breadthFirstSearch() (list []int) {
 		}
 	}
 
-	return list
+	return
 }
 
 func (bst *BinarySearchTree) breadthFirstSearchRecursive(queue []*Node, list []int) []int {
@@ -213,15 +221,8 @@ func (bst *BinarySearchTree) breadthFirstSearchRecursive(queue []*Node, list []i
 	}
 
 	return bst.breadthFirstSearchRecursive(queue, list)
-}
 
-/*
-				9
-		4				20
-	1		6		15		170
-bfs = 9 4 20 1 6 15 170 (more memory required)
-dfs = 9 4 1 6 20 15 170 (lower memory required)
-*/
+}
 
 func main() {
 	var bst BinarySearchTree
@@ -232,8 +233,12 @@ func main() {
 	bst.insert(170)
 	bst.insert(15)
 	bst.insert(1)
+	// bst.inOderTraversal(bst.root)
+	// fmt.Println(inOrderList)
+	// bst.postOderTraversal(bst.root)
+	// bst.preOderTraversal(bst.root)
 	fmt.Println(bst.breadthFirstSearch())
-	fmt.Println(bst.breadthFirstSearchRecursive([]*Node{bst.root}, []int{}))
+	// fmt.Println(bst.breadthFirstSearchRecursive([]*Node{bst.root}, []int{}))
 }
 
 //If you know a solution is not far from the root of the tree:BFS
