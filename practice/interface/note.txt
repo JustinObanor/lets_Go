@@ -1,0 +1,4 @@
+Receivers           Value
+_____________________________
+(t T)                   T and *T
+(t *T)                  *T
