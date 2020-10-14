@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 )
 
@@ -17,46 +18,44 @@ func main() {
 	}
 	path := os.Args[1]
 	printFiles := len(os.Args) == 3 && os.Args[2] == "-f"
+	// printFiles = false
 	err := dirTree(out, path, printFiles)
 	if err != nil {
 		panic(err.Error())
 	}
+	// fmt.Println(directory)
 }
 
-func dirTree(out io.Writer, path string, printFile bool) error {
-	file, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-
-	fileInfos, err := file.Readdir(-1)
+func dirTree(out io.Writer, path string, printFiles bool) error {
+	fileInfos, err := ioutil.ReadDir(path)
 	if err != nil {
 		return err
 	}
 
 	for _, fileInfo := range fileInfos {
 		fileName := fileInfo.Name()
-
 		if fileName == fileToIgnore {
 			continue
 		}
 
-		if printFile {
-			fmt.Println(fileName)
-
-			if fileInfo.IsDir() {
-				//wd - testdata
-				if err := os.Chdir(path); err != nil {
-					return err
-				}
-				dirTree(out, fileName, false)
+		if printFiles || fileInfo.IsDir() {
+			if fileInfo.Mode().IsDir() {
+				fmt.Printf("├───%s\n", fileName)
+			} else {
 				fmt.Println(fileName)
-
-				if err := os.Chdir(fmt.Sprint("../")); err != nil {
-					return err
-				}
 			}
-		} 
+
+			if err := os.Chdir(path); err != nil {
+				return err
+			}
+
+			dirTree(out, fileName, printFiles)
+
+			if err := os.Chdir("../"); err != nil {
+				return err
+			}
+		}
 	}
+
 	return nil
 }
