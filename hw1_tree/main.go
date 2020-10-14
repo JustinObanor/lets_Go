@@ -23,11 +23,10 @@ func main() {
 	if err != nil {
 		panic(err.Error())
 	}
-	// fmt.Println(directory)
 }
 
-func dirTree(out io.Writer, path string, printFiles bool) error {
-	fileInfos, err := ioutil.ReadDir(path)
+func dirTree(out io.Writer, dir string, printFiles bool) error {
+	fileInfos, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return err
 	}
@@ -45,7 +44,7 @@ func dirTree(out io.Writer, path string, printFiles bool) error {
 				fmt.Println(fileName)
 			}
 
-			if err := os.Chdir(path); err != nil {
+			if err := os.Chdir(dir); err != nil {
 				return err
 			}
 
