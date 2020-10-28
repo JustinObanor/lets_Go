@@ -10,7 +10,7 @@ import (
 const (
 	iterationsNum = 6
 	goroutinesNum = 5
-	quotaLimit    = 3
+	quotaLimit    = 2
 )
 
 func startWorker(in int, wg *sync.WaitGroup, quotaCh chan struct{}) {
