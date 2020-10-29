@@ -60,8 +60,8 @@ func (r *result) ask() {
 		})
 	}
 
-	for _, quiz := range r.quizzes {
-		fmt.Printf("%s = ", quiz.question)
+	for i, quiz := range r.quizzes {
+		fmt.Printf("Problem #%d: %s = ",i+1, quiz.question)
 		fmt.Scan(&r.userAnswer)
 
 		if r.userAnswer == quiz.answer {
@@ -119,5 +119,5 @@ func main() {
 	}()
 
 	wg.Wait()
-	fmt.Printf("Total score = %d/%v\n", res.score, len(res.quizzes))
+	fmt.Printf("You scored %d out of %v\n", res.score, len(res.quizzes))
 }
