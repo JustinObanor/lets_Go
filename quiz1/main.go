@@ -4,58 +4,59 @@ import (
 	"encoding/csv"
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"math/rand"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
 
 var (
-	fileName = "problems.csv"
-	shuffle  = flag.Bool("r", false, "for shuffling the quiz")
-	timer    = flag.Int64("t", 30, "stoppage time for quiz")
+	csvFile = flag.String("f", "problems.csv", "file name that contains the quiz")
+	shuffle = flag.Bool("r", false, "for shuffling the quiz")
+	timer   = flag.Int64("t", 30, "stoppage time for quiz")
 )
 
 type result struct {
-	quizzes    []quiz
+	quizzes    []problem
 	userAnswer string
 	score      int
 	resultChan chan string
 }
 
-type quiz struct {
+type problem struct {
 	question string
 	answer   string
 }
 
-func reader(file string) ([]quiz, error) {
+func reader(file string) ([][]string, error) {
 	f, err := os.Open(file)
 	if err != nil {
-		log.Fatal("error opening file")
+		return nil, err
 	}
 	defer f.Close()
 
 	r := csv.NewReader(f)
 
-	var quizzes []quiz
-
-	for {
-		record, err := r.Read()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return nil, err
-		}
-
-		quizzes = append(quizzes, quiz{
-			question: record[0],
-			answer:   record[1],
-		})
+	records, err := r.ReadAll()
+	if err != nil {
+		return nil, err
 	}
-	return quizzes, nil
+
+	return records, nil
+}
+
+func parseRecords(records [][]string) []problem {
+	problems := make([]problem, len(records))
+
+	for i, record := range records {
+		problems[i] = problem{
+			question: record[0],
+			answer:   strings.TrimSpace(record[1]),
+		}
+	}
+	return problems
 }
 
 func (r *result) ask() {
@@ -66,11 +67,11 @@ func (r *result) ask() {
 		})
 	}
 
-	for i, quiz := range r.quizzes {
-		fmt.Printf("Problem #%d: %s = ", i+1, quiz.question)
-		fmt.Scan(&r.userAnswer)
+	for i, problem := range r.quizzes {
+		fmt.Printf("Problem #%d: %s = ", i+1, problem.question)
+		fmt.Scanf("%s\n", &r.userAnswer)
 
-		if r.userAnswer == quiz.answer {
+		if r.userAnswer == problem.answer {
 			r.score++
 		}
 
@@ -80,22 +81,25 @@ func (r *result) ask() {
 }
 
 func main() {
-	fmt.Print(`Hit "Enter" to start!`)
-	fmt.Scanln()
-
-	flag.Parse()
-	timeout := time.After(time.Second * time.Duration(*timer))
-
 	var res result
 	var wg sync.WaitGroup
 	res.resultChan = make(chan string)
 
-	quizzes, err := reader(fileName)
+	flag.Parse()
+
+	records, err := reader(*csvFile)
 	if err != nil {
-		log.Fatal()
+		log.Fatalf("failed to open csv file %s\n", *csvFile)
 	}
 
-	res.quizzes = quizzes
+	problems := parseRecords(records)
+
+	res.quizzes = problems
+
+	fmt.Print(`Hit "Enter" to start!`)
+	fmt.Scanln()
+
+	timeout := time.After(time.Second * time.Duration(*timer))
 
 	wg.Add(1)
 	go func() {
@@ -121,5 +125,6 @@ func main() {
 	}()
 
 	wg.Wait()
-	fmt.Printf("You scored %d out of %v\n", res.score, len(res.quizzes))
+	fmt.Printf("You scored %d out of %v.\n", res.score, len(res.quizzes))
 }
+
