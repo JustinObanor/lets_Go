@@ -30,7 +30,13 @@ type quiz struct {
 	answer   string
 }
 
-func reader(f io.Reader) []quiz {
+func reader(file string) ([]quiz, error) {
+	f, err := os.Open(file)
+	if err != nil {
+		log.Fatal("error opening file")
+	}
+	defer f.Close()
+
 	r := csv.NewReader(f)
 
 	var quizzes []quiz
@@ -41,7 +47,7 @@ func reader(f io.Reader) []quiz {
 			break
 		}
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 
 		quizzes = append(quizzes, quiz{
@@ -49,7 +55,7 @@ func reader(f io.Reader) []quiz {
 			answer:   record[1],
 		})
 	}
-	return quizzes
+	return quizzes, nil
 }
 
 func (r *result) ask() {
@@ -84,13 +90,10 @@ func main() {
 	var wg sync.WaitGroup
 	res.resultChan = make(chan string)
 
-	f, err := os.Open(fileName)
+	quizzes, err := reader(fileName)
 	if err != nil {
-		log.Fatal("error opening file")
+		log.Fatal()
 	}
-	defer f.Close()
-
-	quizzes := reader(f)
 
 	res.quizzes = quizzes
 
