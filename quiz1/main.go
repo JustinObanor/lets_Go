@@ -19,7 +19,7 @@ var (
 )
 
 type result struct {
-	quizzes     []quiz
+	quizzes    []quiz
 	userAnswer string
 	score      int
 	resultChan chan string
@@ -61,7 +61,7 @@ func (r *result) ask() {
 	}
 
 	for i, quiz := range r.quizzes {
-		fmt.Printf("Problem #%d: %s = ",i+1, quiz.question)
+		fmt.Printf("Problem #%d: %s = ", i+1, quiz.question)
 		fmt.Scan(&r.userAnswer)
 
 		if r.userAnswer == quiz.answer {
@@ -79,7 +79,6 @@ func main() {
 
 	flag.Parse()
 	timeout := time.After(time.Second * time.Duration(*timer))
-
 
 	var res result
 	var wg sync.WaitGroup
