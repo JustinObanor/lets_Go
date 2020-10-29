@@ -15,7 +15,7 @@ import (
 var (
 	csvFile = flag.String("f", "problems.csv", "file name that contains the quiz")
 	shuffle = flag.Bool("r", false, "for shuffling the quiz")
-	timer   = flag.Int64("t", 30, "stoppage time for quiz")
+	timer   = flag.Int64("t", 30, "stoppage time for the quiz in seconds")
 )
 
 type result struct {
@@ -69,6 +69,7 @@ func (r *result) ask() {
 
 	for i, problem := range r.quizzes {
 		fmt.Printf("Problem #%d: %s = ", i+1, problem.question)
+
 		fmt.Scanf("%s\n", &r.userAnswer)
 
 		if r.userAnswer == problem.answer {
@@ -99,7 +100,7 @@ func main() {
 	fmt.Print(`Hit "Enter" to start!`)
 	fmt.Scanln()
 
-	timeout := time.After(time.Second * time.Duration(*timer))
+	timeout := time.After(time.Duration(*timer) * time.Second)
 
 	wg.Add(1)
 	go func() {
@@ -127,4 +128,3 @@ func main() {
 	wg.Wait()
 	fmt.Printf("You scored %d out of %v.\n", res.score, len(res.quizzes))
 }
-
