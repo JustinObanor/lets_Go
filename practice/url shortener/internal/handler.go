@@ -19,7 +19,7 @@ type Database struct {
 	DB *bolt.DB
 }
 
-func (db *Database) MapHandler(fallback http.Handler) http.HandlerFunc {
+func (db *Database) DBHandler(fallback http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		db.DB.View(func(tx *bolt.Tx) error {
 			b := tx.Bucket([]byte(DBBucket))
@@ -42,7 +42,7 @@ func (db *Database) YAMLHandler(y []byte, fallback http.Handler) (http.HandlerFu
 
 	db.buildDB(parsedYaml)
 
-	return db.MapHandler(fallback), nil
+	return db.DBHandler(fallback), nil
 }
 
 func ReadYAML(file string) ([]byte, error) {

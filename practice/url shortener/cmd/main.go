@@ -52,7 +52,7 @@ func main() {
 		return nil
 	})
 
-	mapHandler := db.MapHandler(mux)
+	mapHandler := db.DBHandler(mux)
 
 	yaml, err := internal.ReadYAML(*ymlFile)
 	if err != nil {
