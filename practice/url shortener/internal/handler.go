@@ -10,7 +10,7 @@ import (
 
 const DBBucket = "pathsToUrls"
 
-type YAMLData struct {
+type PathURL struct {
 	Path string `yaml:"path"`
 	URL  string `yaml:"url"`
 }
@@ -21,11 +21,12 @@ type Database struct {
 
 func (db *Database) DBHandler(fallback http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
 		db.DB.View(func(tx *bolt.Tx) error {
 			b := tx.Bucket([]byte(DBBucket))
 
-			if url := b.Get([]byte(r.URL.Path)); url != nil {
-				http.RedirectHandler(string(url), http.StatusPermanentRedirect).ServeHTTP(w, r)
+			if url := b.Get([]byte(path)); url != nil {
+				http.Redirect(w, r, string(url), http.StatusFound)
 			} else {
 				fallback.ServeHTTP(w, r)
 			}
@@ -49,17 +50,17 @@ func ReadYAML(file string) ([]byte, error) {
 	return ioutil.ReadFile(file)
 }
 
-func parseYAML(y []byte) ([]YAMLData, error) {
-	var data []YAMLData
+func parseYAML(y []byte) ([]PathURL, error) {
+	var datas []PathURL
 
-	if err := yaml.Unmarshal(y, &data); err != nil {
+	if err := yaml.Unmarshal(y, &datas); err != nil {
 		return nil, err
 	}
 
 	return data, nil
 }
 
-func (db *Database) buildDB(parsedYAML []YAMLData) {
+func (db *Database) buildDB(parsedYAML []PathURL) {
 	for _, data := range parsedYAML {
 		db.DB.Update(func(tx *bolt.Tx) error {
 			b := tx.Bucket([]byte(DBBucket))
