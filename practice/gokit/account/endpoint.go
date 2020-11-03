@@ -6,6 +6,9 @@ import (
 	"github.com/go-kit/kit/endpoint"
 )
 
+//The service methods expose as RPC endpoints.
+//Our core business logic resides in services, which will be exposed as RPC endpoints using a Go kit abstraction called endpoint.
+
 type Endpoints struct {
 	CreateUser endpoint.Endpoint
 	GetUser    endpoint.Endpoint

@@ -23,8 +23,12 @@ import (
 /*
 go kit -
 Transport layer - ways our microservice will communicate with each other and outside word
-Endpoint layer - a single RPC method
+
+Endpoint layer - a single RPC method.
+Each endpoint exposes the service method to outside world using Transport layer by using concrete transports like HTTP or gRPC
+
 Service layer - bussiness logic of the microservice itself
+Each service method in a Go kit service converts to an endpoint to make RPC style communication between servers and clients.
 */
 
 var host = getenv("PSQL_HOST", "account")

@@ -2,7 +2,7 @@ package account
 
 import "context"
 
-//methods to be exposed to transport & use the interface to implement the bussiness logic
+//methods to be exposed to transport . we use the interface to implement the bussiness logic
 //theyll be exposed from our microservice
 
 type Service interface {

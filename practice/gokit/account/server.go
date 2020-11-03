@@ -8,6 +8,9 @@ import (
 	"github.com/gorilla/mux"
 )
 
+//expose our service to the outside world so that other services can make RPC calls on it
+//we need a concrete transport to serve the services
+
 func NewHTTPServer(ctx context.Context, endpoints Endpoints) http.Handler {
 	r := mux.NewRouter()
 	r.Use(commonMiddleware)

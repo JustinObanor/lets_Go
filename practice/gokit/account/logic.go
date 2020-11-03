@@ -8,6 +8,9 @@ import (
 	"github.com/gofrs/uuid"
 )
 
+//Implementation of business logic for user service interface
+
+//service implements the user service
 type service struct {
 	repostory Repository
 	logger    log.Logger
@@ -51,7 +54,7 @@ func (s service) GetUser(ctx context.Context, id string) (string, error) {
 		return "", err
 	}
 
-	logger.Log("Get user", id)
+	logger.Log("get user", id)
 
 	return email, nil
 }
