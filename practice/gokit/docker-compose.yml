@@ -5,7 +5,7 @@ services:
         build: 
             context: .
             dockerfile: Dockerfile
-        container_name: userAccount
+        container_name: userapp
         ports: 
             - '8080:8080'
         depends_on: 
@@ -13,7 +13,7 @@ services:
 
     postgres:
         image: postgres
-        container_name: account
+        container_name: userdb
         ports: 
           - '5440:5432'
         volumes: 
