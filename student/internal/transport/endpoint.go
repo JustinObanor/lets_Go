@@ -7,22 +7,6 @@ import (
 	"github.com/lets_Go/student/internal/student"
 )
 
-type Endpoints struct {
-	CreateStudent endpoint.Endpoint
-	GetStudent    endpoint.Endpoint
-	UpdateStudent endpoint.Endpoint
-	DeleteStudent endpoint.Endpoint
-}
-
-func MakeEndpoints(s student.Service) Endpoints {
-	return Endpoints{
-		CreateStudent: makeCreateStudentEndpoint(s),
-		GetStudent:    makeGetStudentEndpoint(s),
-		UpdateStudent: makeUpdateStudentEndpoint(s),
-		DeleteStudent: makeDeleteStudentEndpoint(s),
-	}
-}
-
 func makeCreateStudentEndpoint(s student.Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(CreateUpdateStudentRequest)

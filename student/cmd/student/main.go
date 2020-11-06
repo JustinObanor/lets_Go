@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"database/sql"
 	"flag"
 	"fmt"
@@ -10,6 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/go-chi/chi"
 	_ "github.com/lib/pq"
 
 	"github.com/go-kit/kit/log"
@@ -62,12 +62,12 @@ func main() {
 	}
 
 	flag.Parse()
-	ctx := context.Background()
-	var srv student.Service
+
+	var svc student.Service
 	{
 		repository := storage.NewRepo(db, logger)
 
-		srv = student.NewService(repository, logger)
+		svc = student.NewService(repository, logger)
 	}
 
 	errs := make(chan error)
@@ -78,12 +78,17 @@ func main() {
 		errs <- fmt.Errorf("%s", <-c)
 	}()
 
-	endpoints := transport.MakeEndpoints(srv)
+	r := chi.NewRouter()
+	r.Route("/v1", func(r chi.Router) {
+		r.Post("/student", transport.NewCreateStudentEndpoint(svc))
+		r.Get("/student/{id}", transport.NewGetStudentEndpoint(svc))
+		r.Put("/student/{id}", transport.NewUpdateStudentEndpoint(svc))
+		r.Delete("/student/{id}", transport.NewDeleteStudentEndpoint(svc))
+	})
 
 	go func() {
 		fmt.Println("listening on port", *httpAddr)
-		handler := transport.NewHTTPServer(ctx, endpoints)
-		errs <- http.ListenAndServe(*httpAddr, handler)
+		errs <- http.ListenAndServe(*httpAddr, r)
 	}()
 
 	level.Error(logger).Log("exit", <-errs)

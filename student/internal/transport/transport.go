@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/gorilla/mux"
+	"github.com/go-chi/chi"
 )
 
 type (
@@ -47,23 +47,23 @@ func encodeResponse(_ context.Context, w http.ResponseWriter, response interface
 func decodeCreateUpdateStudentRequest(ctx context.Context, r *http.Request) (interface{}, error) {
 	var req CreateUpdateStudentRequest
 
-	vars := mux.Vars(r)
+	id := chi.URLParam(r, "id")
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return nil, err
 	}
 
-	req.ID = vars["id"]
+	req.ID = id
 
 	return req, nil
 }
 
 func decodeGetDeleteStudentRequest(ctx context.Context, r *http.Request) (interface{}, error) {
 	var req GetStudentRequest
-	vars := mux.Vars(r)
+	id := chi.URLParam(r, "id")
 
 	req = GetStudentRequest{
-		ID: vars["id"],
+		ID: id,
 	}
 
 	return req, nil
