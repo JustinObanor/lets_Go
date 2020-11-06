@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	"github.com/boltdb/bolt"
-	"github.com/lets_Go/quiz/internal"
+	"github.com/lets_Go/practice/urlShortener/internal"
 )
 
 func newDB() (*internal.Database, error) {

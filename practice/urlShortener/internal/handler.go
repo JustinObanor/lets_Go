@@ -57,7 +57,7 @@ func parseYAML(y []byte) ([]PathURL, error) {
 		return nil, err
 	}
 
-	return data, nil
+	return datas, nil
 }
 
 func (db *Database) buildDB(parsedYAML []PathURL) {
