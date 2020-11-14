@@ -4,6 +4,7 @@ import "fmt"
 
 //abstraction is hiding tjhe internal implementations and details, and only showing whats neccessary.
 //eg a house. hiding whats going on inside and only showing the neccasary things
+//hiding implementations using private(unexported) methods and fields
 
 //encapsulation(grouping data and methods together)
 type person struct {
