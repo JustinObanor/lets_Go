@@ -17,11 +17,6 @@ type database struct {
 	db *bolt.DB
 }
 
-type todo struct {
-	id   uint64
-	task string
-}
-
 func newDatabse() *database {
 	db, err := bolt.Open("my.db", 0600, nil)
 	if err != nil {
