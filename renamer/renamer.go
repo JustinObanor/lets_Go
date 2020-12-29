@@ -43,7 +43,7 @@ func main() {
 
 		fmt.Printf("mv %s => %s\n", oldpath, filepath.Join(dir, newpath))
 
-		err = os.Rename(newpath, filepath.Join(dir, oldpath))
+		err = os.Rename(filepath.Join(dir, oldpath), filepath.Join(dir, newpath))
 		if err != nil {
 			panic(err)
 		}
