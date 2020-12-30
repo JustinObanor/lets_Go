@@ -32,13 +32,15 @@ func rename(dir string) error {
 	for _, v := range toRename {
 		newName, err := match(v.name, 0)
 		if err != nil {
-			return err
+			return fmt.Errorf("error matching file %s: %s", v.name, err)
 		}
 
 		oldpath := filepath.Join(v.path, v.name)
 		newpath := filepath.Join(v.path, newName)
 
-		fmt.Println(oldpath, newpath)
+		if err = os.Rename(oldpath, newpath); err != nil {
+			return fmt.Errorf("error renaming file %s: %s", v.name, err)
+		}
 	}
 
 	return nil
