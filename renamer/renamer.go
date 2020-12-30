@@ -3,53 +3,69 @@ package main
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 )
 
-func main() {
-	dir := "./sample"
+type file struct {
+	name string
+	path string
+}
 
-	files, err := ioutil.ReadDir(dir)
+func main() {
+	dir := "sample"
+
+	err := rename(dir)
 	if err != nil {
 		panic(err)
 	}
+}
 
-	var toRename []string
-	var toVisit []string
-	var count int
-
-	for _, file := range files {
-		if file.IsDir() {
-			toVisit = append(toVisit, filepath.Join(dir, file.Name()))
-		} else {
-			_, err := match(file.Name(), 0)
-			if err == nil {
-				count++
-
-				toRename = append(toRename, file.Name())
-			}
-		}
+func rename(dir string) error {
+	toRename, err := getFiles(dir)
+	if err != nil {
+		return err
 	}
 
-	for _, oldpath := range toRename {
-		newpath, err := match(oldpath, count)
+	for _, v := range toRename {
+		newName, err := match(v.name, 0)
 		if err != nil {
-			panic(err)
+			return err
 		}
 
-		fmt.Printf("mv %s => %s\n", oldpath, filepath.Join(dir, newpath))
+		oldpath := filepath.Join(v.path, v.name)
+		newpath := filepath.Join(v.path, newName)
 
-		err = os.Rename(filepath.Join(dir, oldpath), filepath.Join(dir, newpath))
-		if err != nil {
-			panic(err)
-		}
+		fmt.Println(oldpath, newpath)
 	}
 
-	fmt.Println(toVisit)
+	return nil
+}
+
+func getFiles(dir string) ([]file, error) {
+	var f file
+	var toRename []file
+
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if info.IsDir() {
+			f.path = path
+		}
+
+		if _, err = match(info.Name(), 0); err == nil {
+			f.name = info.Name()
+
+			toRename = append(toRename, f)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return toRename, nil
 }
 
 func match(filename string, max int) (string, error) {
