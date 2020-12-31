@@ -33,7 +33,7 @@ func rename(directory string) error {
 			oldpath := filepath.Join(file.path, file.file)
 			res, _ := match(file.file)
 
-			newpath := filepath.Join(file.path, fmt.Sprintf("%s %d of %d.%s", strings.Title(res.base), (idx+1), n, res.ext))
+			newpath := filepath.Join(file.path, fmt.Sprintf("%s - %d of %d.%s", strings.Title(res.base), (idx+1), n, res.ext))
 
 			fmt.Printf("mv %s -> %s\n", oldpath, newpath)
 			if !*dry {
