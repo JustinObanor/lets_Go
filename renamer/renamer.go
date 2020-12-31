@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,16 +8,10 @@ import (
 	"strings"
 )
 
-type file struct {
-	name string
-	path string
-}
+var dir = "sample"
 
 func main() {
-	dir := "sample"
-
-	err := rename(dir)
-	if err != nil {
+	if err := rename(dir); err != nil {
 		panic(err)
 	}
 }
@@ -29,36 +22,40 @@ func rename(dir string) error {
 		return err
 	}
 
-	for _, v := range toRename {
-		newName, err := match(v.name, 0)
-		if err != nil {
-			return fmt.Errorf("error matching file %s: %s", v.name, err)
-		}
+	for _, files := range toRename {
+		n := len(files)
+		for idx, file := range files {
+			oldpath := filepath.Join(file.path, fmt.Sprintf("%s.%s", file.base, file.ext))
+			newpath := filepath.Join(file.path, fmt.Sprintf("%s %d of %d.%s", strings.Title(file.base), (idx+1), n, file.ext))
 
-		oldpath := filepath.Join(v.path, v.name)
-		newpath := filepath.Join(v.path, newName)
-
-		if err = os.Rename(oldpath, newpath); err != nil {
-			return fmt.Errorf("error renaming file %s: %s", v.name, err)
+			if err := os.Rename(oldpath, newpath); err != nil {
+				return fmt.Errorf("error renaming file %s to %s: %v", oldpath, newpath, err)
+			}
 		}
 	}
-
 	return nil
 }
 
-func getFiles(dir string) ([]file, error) {
-	var f file
-	var toRename []file
+type fileinfo struct {
+	path string
+	base string
+	ext  string
+}
 
-	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if info.IsDir() {
-			f.path = path
-		}
+func getFiles(root string) (map[string][]fileinfo, error) {
+	toRename := make(map[string][]fileinfo)
 
-		if _, err = match(info.Name(), 0); err == nil {
-			f.name = info.Name()
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		path = filepath.Dir(path)
 
-			toRename = append(toRename, f)
+		if file, err := match(info.Name()); err == nil {
+			key := filepath.Join(path, fmt.Sprintf("%s.%s", file.base, file.ext))
+
+			toRename[key] = append(toRename[key], fileinfo{
+				path: path,
+				base: file.base,
+				ext:  file.ext,
+			})
 		}
 		return nil
 	})
@@ -70,19 +67,29 @@ func getFiles(dir string) ([]file, error) {
 	return toRename, nil
 }
 
-func match(filename string, max int) (string, error) {
+type matchResult struct {
+	base string
+	ext  string
+}
+
+func match(filename string) (*matchResult, error) {
 	pieces := strings.Split(filename, ".")
+	file := strings.Join(pieces[:len(pieces)-1], ".")
 
 	ext := pieces[len(pieces)-1]
 
-	file := strings.Join(pieces[:len(pieces)-1], ".")
 	pieces = strings.Split(file, "_")
-	name := strings.Join(pieces[0:len(pieces)-1], "_")
+	file = strings.Join(pieces[:len(pieces)-1], "_")
 
-	num, err := strconv.Atoi(pieces[len(pieces)-1])
+	num := pieces[len(pieces)-1]
+
+	_, err := strconv.Atoi(num)
 	if err != nil {
-		return "", errors.New("doesnt match")
+		return nil, fmt.Errorf("%s doesnt match", filename)
 	}
 
-	return fmt.Sprintf("%s - %d of %d.%s", strings.Title(name), num, max, ext), nil
+	return &matchResult{
+		base: pieces[0],
+		ext:  ext,
+	}, nil
 }
