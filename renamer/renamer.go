@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,8 +10,11 @@ import (
 )
 
 var dir = "sample"
+var dry = flag.Bool("dry", true, "specify whether this should be a dry run or not")
 
 func main() {
+	flag.Parse()
+
 	if err := rename(dir); err != nil {
 		panic(err)
 	}
@@ -26,12 +30,17 @@ func rename(directory string) error {
 		n := len(files)
 		for idx, file := range files {
 
-			oldfile := filepath.Join(file.path, file.file)
+			oldpath := filepath.Join(file.path, file.file)
 			res, _ := match(file.file)
 
-			newfile := filepath.Join(file.path, fmt.Sprintf("%s %d of %d.%s", strings.Title(res.base), (idx+1), n, res.ext))
+			newpath := filepath.Join(file.path, fmt.Sprintf("%s %d of %d.%s", strings.Title(res.base), (idx+1), n, res.ext))
 
-			fmt.Printf("mv %s -> %s\n", oldfile, newfile)
+			fmt.Printf("mv %s -> %s\n", oldpath, newpath)
+			if !*dry {
+				if err := os.Rename(oldpath, newpath); err != nil {
+					return err
+				}
+			}
 		}
 	}
 
