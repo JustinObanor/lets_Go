@@ -1,15 +1,16 @@
 package main
 
-import (
-	"fmt"
-	"net/url"
-)
+import "fmt"
+
+type blah struct {
+	a, b string
+	c, d int
+}
+
+var pss *blah
+var pss2 *blah = nil
 
 func main() {
-	s := ""
-
-	u , _:= url.Parse(s)
-
-	fmt.Println(u.Path[1:])
-	fmt.Println("test")
+	fmt.Println(pss == nil)
+	fmt.Println(pss2 == nil)
 }

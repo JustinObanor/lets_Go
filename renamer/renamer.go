@@ -59,12 +59,11 @@ func getFiles(root string) (map[string][]fileinfo, error) {
 		path = filepath.Dir(path)
 
 		if file, err := match(info.Name()); err == nil {
-			oldfile := fmt.Sprintf("%s_%s.%s", file.base, file.num, file.ext)
 			key := filepath.Join(path, fmt.Sprintf("%s.%s", file.base, file.ext))
 
 			toRename[key] = append(toRename[key], fileinfo{
 				path: path,
-				file: oldfile,
+				file: info.Name(),
 			})
 		}
 		return nil
@@ -79,7 +78,6 @@ func getFiles(root string) (map[string][]fileinfo, error) {
 
 type matchResult struct {
 	base string
-	num  string
 	ext  string
 }
 
@@ -102,7 +100,6 @@ func match(filename string) (*matchResult, error) {
 
 	return &matchResult{
 		base: file,
-		num:  num,
 		ext:  ext,
 	}, nil
 }
