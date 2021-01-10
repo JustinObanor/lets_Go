@@ -84,12 +84,12 @@
     <h1>Quiet Hacker News</h1>
 
     <ol>
-      {{ range $key, $value := . }}
-        <li><a href="{{ $value. }}">{{ $value. }}</a> <span>({{ $value. }})</span></li>
+      {{ range $key, $value := .Items }}
+        <li><a href="{{ $value.URL }}">{{ $value.Title }}</a> <span>({{ $value.Host }})</span></li>
       {{ end }}
     </ol>
 
-    <p class="time"> This page was rendered in {{.}}</p>
+    <p class="time"> This page was rendered in {{.Time}}</p>
 
     <script>
       (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
