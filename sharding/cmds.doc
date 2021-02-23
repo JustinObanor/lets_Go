@@ -1,0 +1,54 @@
+docker-compose -f <dir>/docker-compose.yaml up
+
+mongo mongodb://<ip>:<docker host>
+
+rs.initiate(
+  {
+    _id: "configsvrrs",
+    configsvr: true,
+    members: [
+      { _id : 0, host : "192.168.100.7:40001" },
+      { _id : 1, host : "192.168.100.7:40002" },
+      { _id : 2, host : "192.168.100.7:40003" }
+    ]
+  }
+)
+
+rs.initiate(
+  {
+    _id: "shard1rs",
+    members: [
+      { _id : 0, host : "192.168.100.7:50001" },
+      { _id : 1, host : "192.168.100.7:50002" },
+      { _id : 2, host : "192.168.100.7:50003" }
+    ]
+  }
+)
+
+rs.initiate(
+  {
+    _id: "shard2rs",
+    members: [
+      { _id : 0, host : "192.168.100.7:50004" },
+      { _id : 1, host : "192.168.100.7:50005" },
+      { _id : 2, host : "192.168.100.7:50006" }
+    ]
+  }
+)
+
+#from mongos
+sh.addShard("shard1rs/192.168.100.7:50001,192.168.100.7:50002,192.168.100.7:50003")
+sh.addShard("shard2rs/192.168.100.7:50004,192.168.100.7:50004,192.168.100.7:50006")
+
+#check if sharded
+db.movies.getShardDistribution()
+
+sh.enableSharding("demo")
+sh.shardCollection("demo.movies", {<field>:"hashed"})
+
+for i in {1..50}; do echo -e "use demo \n db.movies2.insertOne({\"title\":\"Spider Man $i\", \"language\":\"English\"})" | mongo mongodb://192.168.100.7:60000; done
+
+for i in {1..50}; do echo -e "use demo \n db.movies.insertOne({\"title\":\"Spider Man $i\", \"language\":\"English\"})" | mongo mongodb://192.168.100.7:60000; done
+
+db.movies.createIndex({"_id":"hashed"})
+sh.shardCollection("demo.movies", {"_id":"hashed"})
