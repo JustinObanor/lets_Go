@@ -44,7 +44,7 @@ sh.addShard("shard2rs/192.168.100.7:50004,192.168.100.7:50004,192.168.100.7:5000
 db.movies.getShardDistribution()
 
 sh.enableSharding("demo")
-sh.shardCollection("demo.movies", {<field>:"hashed"})
+sh.shardCollection("demo.movies", {"_id":"hashed"})
 
 for i in {1..50}; do echo -e "use demo \n db.movies2.insertOne({\"title\":\"Spider Man $i\", \"language\":\"English\"})" | mongo mongodb://192.168.100.7:60000; done
 
@@ -52,3 +52,14 @@ for i in {1..50}; do echo -e "use demo \n db.movies.insertOne({\"title\":\"Spide
 
 db.movies.createIndex({"_id":"hashed"})
 sh.shardCollection("demo.movies", {"_id":"hashed"})
+
+var dbName = 'config';
+db.getSiblingDB(dbName).getCollectionNames().forEach(function(collName) {
+    // Drop all collections except system ones (indexes/profile)
+    if (!collName.startsWith("system.")) {
+        // Safety hat
+        print("WARNING: going to drop ["+dbName+"."+collName+"] in 5s .. hit Ctrl-C if you've changed your mind!");
+        sleep(5000);
+        db[collName].drop();
+    }
+})

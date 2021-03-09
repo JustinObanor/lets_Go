@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/xml"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -10,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/BurntSushi/toml"
 	"github.com/lets_Go/practice/sitemap/parser"
 )
 
@@ -25,13 +25,20 @@ type urlset struct {
 	URLs    []location `xml:"url"`
 }
 
-func main() {
-	urlFlag := flag.String("url", "https://gophercises.com", "the site we want to build a site map for")
-	maxBFSDepth := flag.Int("depth", 10, "the maximum depth we want to go while visiting links")
-	xmlFile := flag.String("file", "urlset.xml", "file where we want to store the parsed url")
-	flag.Parse()
+type config struct {
+	URL        string
+	MaxDepth   int
+	OutputFile string
+}
 
-	pages := bfs(*urlFlag, *maxBFSDepth)
+func main() {
+	cfg := config{}
+	_, err := toml.DecodeFile("config.toml", &cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	pages := bfs(cfg.URL, cfg.MaxDepth)
 	toXML := urlset{
 		XMLns: xmlns,
 		URLs:  make([]location, len(pages)),
@@ -43,7 +50,7 @@ func main() {
 		}
 	}
 
-	if err := marshallXML(*xmlFile, toXML); err != nil {
+	if err := marshallXML(cfg.OutputFile, toXML); err != nil {
 		log.Println(err)
 	}
 }
@@ -91,7 +98,7 @@ func bfs(base string, maxDepth int) []string {
 			}
 
 			seen[link] = struct{}{}
-
+			fmt.Println(link)
 			for _, link := range getLinks(link) {
 				if _, ok := seen[link]; !ok {
 					nq[link] = struct{}{}
@@ -131,7 +138,7 @@ func filter(links []string, KeepFn func(string) bool) []string {
 
 func withPrefix(pfx string) func(string) bool {
 	return func(url string) bool {
-		return strings.HasPrefix(url, pfx)
+		return strings.HasPrefix(url, pfx) && !strings.Contains(url, "pdf") && !strings.Contains(url, "pptx") && !strings.Contains(url, "doc")
 	}
 }
 
