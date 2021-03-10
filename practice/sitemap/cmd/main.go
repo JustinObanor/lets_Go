@@ -38,6 +38,8 @@ func main() {
 		log.Fatal(err)
 	}
 
+	fmt.Printf("%+v\n", cfg)
+
 	pages := bfs(cfg.URL, cfg.MaxDepth)
 	toXML := urlset{
 		XMLns: xmlns,
@@ -138,7 +140,7 @@ func filter(links []string, KeepFn func(string) bool) []string {
 
 func withPrefix(pfx string) func(string) bool {
 	return func(url string) bool {
-		return strings.HasPrefix(url, pfx) && !strings.Contains(url, "pdf") && !strings.Contains(url, "pptx") && !strings.Contains(url, "doc")
+		return strings.HasPrefix(url, pfx) && !strings.Contains(url, "zip") && !strings.Contains(url, "pdf") && !strings.Contains(url, "pptx") && !strings.Contains(url, "doc") && !strings.Contains(url, "jpg") 
 	}
 }
 
