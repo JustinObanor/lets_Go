@@ -21,13 +21,9 @@ var (
 )
 
 func initalize() {
-	client := apiClient{
-		transport: &http.Client{
+	cli.transport = &http.Client{
 			Timeout: time.Second * 5,
-		},
 	}
-
-	cli = client
 }
 
 func getBody() ([]byte, error) {
